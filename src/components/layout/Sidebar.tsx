@@ -84,7 +84,10 @@ export default function Sidebar({ isOpen, onClose, currentPath }: SidebarProps) 
             transition={{ type: 'spring', stiffness: 350, damping: 35 }}
           >
             {/* Header del sidebar */}
-            <div className="flex items-center justify-between p-6 pb-4">
+            <div
+              className="flex items-center justify-between px-6 pb-4"
+              style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)' }}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
                   style={{ background: 'linear-gradient(135deg, #7c6af7, #ec4899)' }}>

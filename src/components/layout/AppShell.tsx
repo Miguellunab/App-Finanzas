@@ -14,8 +14,14 @@ export default function AppShell({ currentPath, title, children }: AppShellProps
     <div className="min-h-dvh flex flex-col" style={{ background: '#0a0a0f', maxWidth: '480px', margin: '0 auto', position: 'relative' }}>
       {/* Top header */}
       <header
-        className="sticky top-0 z-30 flex items-center justify-between px-5 py-4"
-        style={{ background: 'rgba(10,10,15,0.85)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #1e1e28' }}
+        className="sticky top-0 z-30 flex items-center justify-between px-5"
+        style={{
+          background: 'rgba(10,10,15,0.85)',
+          backdropFilter: 'blur(16px)',
+          borderBottom: '1px solid #1e1e28',
+          paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
+          paddingBottom: '12px',
+        }}
       >
         <button
           onClick={() => setSidebarOpen(true)}
