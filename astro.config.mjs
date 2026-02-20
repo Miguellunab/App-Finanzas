@@ -15,12 +15,6 @@ export default defineConfig({
 
   vite: {
     plugins: [tailwindcss()],
-    optimizeDeps: {
-      exclude: ['better-sqlite3'],
-    },
-    ssr: {
-      external: ['better-sqlite3'],
-    },
   },
 
   adapter: node({

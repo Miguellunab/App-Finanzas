@@ -22,7 +22,7 @@ export const GET: APIRoute = async ({ url }) => {
       endDate = searchParams.get('endDate') ?? new Date().toISOString().split('T')[0];
     }
 
-    const dateConditions = [];
+    const dateConditions: ReturnType<typeof gte>[] = [];
     if (startDate) dateConditions.push(gte(schema.transactions.date, startDate));
     if (endDate) dateConditions.push(lte(schema.transactions.date, endDate));
     const dateFilter = dateConditions.length > 0 ? and(...dateConditions) : undefined;
@@ -30,8 +30,8 @@ export const GET: APIRoute = async ({ url }) => {
     // Totales del período
     const totals = await db.select({
       type: schema.transactions.type,
-      total: sql<number>`COALESCE(SUM(amount), 0)`,
-      count: sql<number>`COUNT(*)`,
+      total: sql<number>`COALESCE(SUM(${schema.transactions.amount}), 0)`,
+      count: sql<number>`COUNT(*)::int`,
     })
     .from(schema.transactions)
     .where(dateFilter)
@@ -42,6 +42,9 @@ export const GET: APIRoute = async ({ url }) => {
     const transfers = totals.find(t => t.type === 'transfer')?.total ?? 0;
 
     // Gastos por categoría
+    const expenseConditions = [eq(schema.transactions.type, 'expense')];
+    if (dateFilter) expenseConditions.push(dateFilter);
+
     const byCategory = await db.select({
       categoryId: schema.transactions.categoryId,
       categoryName: schema.categories.name,
@@ -49,20 +52,26 @@ export const GET: APIRoute = async ({ url }) => {
       categoryColor: schema.categories.color,
       budgetLimit: schema.categories.budgetLimit,
       total: sql<number>`COALESCE(SUM(${schema.transactions.amount}), 0)`,
-      count: sql<number>`COUNT(*)`,
+      count: sql<number>`COUNT(*)::int`,
     })
     .from(schema.transactions)
     .leftJoin(schema.categories, eq(schema.transactions.categoryId, schema.categories.id))
-    .where(and(eq(schema.transactions.type, 'expense'), dateFilter))
-    .groupBy(schema.transactions.categoryId)
+    .where(and(...expenseConditions))
+    .groupBy(
+      schema.transactions.categoryId,
+      schema.categories.name,
+      schema.categories.emoji,
+      schema.categories.color,
+      schema.categories.budgetLimit
+    )
     .orderBy(sql`SUM(${schema.transactions.amount}) DESC`);
 
     // Gastos por día (últimos 30 días)
     const last30Days = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
     const byDay = await db.select({
       date: schema.transactions.date,
-      income: sql<number>`COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END), 0)`,
-      expense: sql<number>`COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0)`,
+      income: sql<number>`COALESCE(SUM(CASE WHEN ${schema.transactions.type}='income' THEN ${schema.transactions.amount} ELSE 0 END), 0)`,
+      expense: sql<number>`COALESCE(SUM(CASE WHEN ${schema.transactions.type}='expense' THEN ${schema.transactions.amount} ELSE 0 END), 0)`,
     })
     .from(schema.transactions)
     .where(gte(schema.transactions.date, last30Days))
@@ -136,7 +145,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     if (txs.length === 0) {
       return new Response(JSON.stringify({ 
-        review: '📭 No hay transacciones registradas en este período para analizar. ¡Empieza a registrar tus movimientos!' 
+        review: 'No hay transacciones registradas en este periodo para analizar. Empieza a registrar tus movimientos!' 
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -147,14 +156,14 @@ export const POST: APIRoute = async ({ request }) => {
     const currentDay = new Date().getDate();
 
     const dataContext = `
-PERÍODO: ${startDate} al ${endDate}
-HOY: ${today} (día ${currentDay} de ${daysInMonth})
+PERIODO: ${startDate} al ${endDate}
+HOY: ${today} (dia ${currentDay} de ${daysInMonth})
 TOTAL INGRESOS: $${totalIncome.toLocaleString('es-CO')} COP
 TOTAL GASTOS: $${totalExpenses.toLocaleString('es-CO')} COP
-BALANCE DEL PERÍODO: $${(totalIncome - totalExpenses).toLocaleString('es-CO')} COP
+BALANCE DEL PERIODO: $${(totalIncome - totalExpenses).toLocaleString('es-CO')} COP
 
 TRANSACCIONES (${txs.length} en total):
-${txs.map(t => `- [${t.date}] ${t.type === 'income' ? '↑ INGRESO' : t.type === 'expense' ? '↓ GASTO' : '↔ TRANSFERENCIA'} $${t.amount.toLocaleString('es-CO')} COP | Categoría: ${t.categoryName ?? 'Sin categoría'} | Billetera: ${t.walletName ?? 'N/A'} | "${t.description}"`).join('\n')}
+${txs.map(t => `- [${t.date}] ${t.type === 'income' ? 'INGRESO' : t.type === 'expense' ? 'GASTO' : 'TRANSFERENCIA'} $${t.amount.toLocaleString('es-CO')} COP | Categoria: ${t.categoryName ?? 'Sin categoria'} | Billetera: ${t.walletName ?? 'N/A'} | "${t.description}"`).join('\n')}
     `.trim();
 
     const groq = getGroq();
@@ -168,7 +177,7 @@ ${txs.map(t => `- [${t.date}] ${t.type === 'income' ? '↑ INGRESO' : t.type ===
       max_tokens: 1200,
     });
 
-    const review = completion.choices[0]?.message?.content ?? 'No se pudo generar el análisis.';
+    const review = completion.choices[0]?.message?.content ?? 'No se pudo generar el analisis.';
 
     return new Response(JSON.stringify({ review }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e: any) {

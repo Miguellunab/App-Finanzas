@@ -50,7 +50,7 @@ export const GET: APIRoute = async ({ url }) => {
       .offset(offset);
 
     const total = await db
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: sql<number>`count(*)::int` })
       .from(schema.transactions)
       .where(conditions.length > 0 ? and(...conditions) : undefined);
 

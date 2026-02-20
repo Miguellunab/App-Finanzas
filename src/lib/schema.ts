@@ -1,44 +1,44 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { pgTable, text, integer, real, boolean, timestamp, date } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // Billeteras (Efectivo, Tarjeta, etc.)
-export const wallets = sqliteTable('wallets', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const wallets = pgTable('wallets', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   name: text('name').notNull(),
   emoji: text('emoji').notNull().default('💳'),
   color: text('color').notNull().default('#6366f1'),
   currency: text('currency').notNull().default('COP'),
   balance: real('balance').notNull().default(0),
-  isArchived: integer('is_archived', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
 // Categorías (Comida, Transporte, etc.)
-export const categories = sqliteTable('categories', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const categories = pgTable('categories', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   name: text('name').notNull(),
   emoji: text('emoji').notNull().default('📦'),
   color: text('color').notNull().default('#8b5cf6'),
-  type: text('type', { enum: ['income', 'expense', 'both'] }).notNull().default('both'),
+  type: text('type').notNull().default('both'),
   budgetLimit: real('budget_limit'), // Límite mensual opcional
-  isArchived: integer('is_archived', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
 // Transacciones
-export const transactions = sqliteTable('transactions', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  type: text('type', { enum: ['income', 'expense', 'transfer'] }).notNull(),
+export const transactions = pgTable('transactions', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  type: text('type').notNull(),
   amount: real('amount').notNull(),
   currency: text('currency').notNull().default('COP'),
   categoryId: integer('category_id').references(() => categories.id),
   walletId: integer('wallet_id').notNull().references(() => wallets.id),
   walletDestinationId: integer('wallet_destination_id').references(() => wallets.id), // Para transferencias
   description: text('description').notNull().default(''),
-  aiGenerated: integer('ai_generated', { mode: 'boolean' }).notNull().default(false),
+  aiGenerated: boolean('ai_generated').notNull().default(false),
   rawInput: text('raw_input'), // El texto original que dio el usuario
-  date: text('date').notNull().default(sql`(date('now'))`),
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  date: text('date').notNull().default(sql`CURRENT_DATE`),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
 // Tipos exportados
