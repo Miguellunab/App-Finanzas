@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CATEGORY_COLORS } from '../../lib/utils';
+import CashFlow from '../animations/CashFlow';
 
 interface AIInterpretation {
   type: 'income' | 'expense' | 'transfer';
@@ -153,6 +154,10 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
               <p className="text-xs mt-1" style={{ color: '#5a5870' }}>
                 "{data.rawText}"
               </p>
+            </div>
+
+            <div className="w-full" style={{ borderBottom: '1px solid #1e1e28', background: 'radial-gradient(circle at 50% 50%, rgba(124,106,247,0.05) 0%, transparent 100%)' }}>
+               <CashFlow />
             </div>
 
             <div className="p-5 flex flex-col gap-4">

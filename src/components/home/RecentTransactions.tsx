@@ -132,8 +132,8 @@ export default function RecentTransactions({ transactions, onDelete }: RecentTra
               {onDelete && (
                 <button
                   onClick={() => onDelete(tx.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 p-1.5 rounded-lg"
-                  style={{ color: '#f43f5e', background: 'rgba(244,63,94,0.1)' }}
+                  className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-1 p-2 rounded-lg"
+                  style={{ color: '#f43f5e', background: 'rgba(244,63,94,0.15)' }}
                   aria-label="Eliminar"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function useCountUp(target: number, duration = 800) {
   const [value, setValue] = useState(0);
@@ -47,15 +47,38 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets }:
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="mx-4 mt-5 rounded-2xl overflow-hidden"
+      className="mx-4 mt-5 rounded-2xl overflow-hidden relative"
       style={{
         background: 'linear-gradient(135deg, #1a1530 0%, #12112a 50%, #0f1528 100%)',
         border: '1px solid rgba(124,106,247,0.3)',
         boxShadow: '0 8px 32px rgba(124,106,247,0.12)',
       }}
     >
+      {/* Background SVG Waves */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" preserveAspectRatio="none" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="card-wave" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#7c6af7" />
+            <stop offset="50%" stopColor="#ec4899" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+        </defs>
+        <motion.path
+          d="M 0,100 C 100,200 300,0 400,100 L 400,200 L 0,200 Z"
+          fill="url(#card-wave)"
+          animate={{
+            d: [
+              "M 0,100 C 100,200 300,0 400,100 L 400,200 L 0,200 Z",
+              "M 0,150 C 150,50 250,250 400,150 L 400,200 L 0,200 Z",
+              "M 0,100 C 100,200 300,0 400,100 L 400,200 L 0,200 Z",
+            ]
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </svg>
+
       {/* Balance principal */}
-      <div className="p-6 pb-4">
+      <div className="p-6 pb-4 relative z-10">
         <p className="text-xs font-medium tracking-wider uppercase mb-3" style={{ color: '#5a5870' }}>
           Balance Total
         </p>
@@ -88,7 +111,7 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets }:
       {/* Wallets expandibles */}
       <button
         onClick={() => setShowWallets(v => !v)}
-        className="w-full flex items-center justify-between px-6 py-3 text-xs font-medium transition-colors"
+        className="w-full flex items-center justify-between px-6 py-3 text-xs font-medium transition-colors relative z-10"
         style={{
           color: '#9896b0',
           borderTop: '1px solid rgba(124,106,247,0.15)',
@@ -103,37 +126,40 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets }:
         </motion.span>
       </button>
 
-      {showWallets && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.25 }}
-          className="px-4 pb-4 flex flex-col gap-2"
-        >
-          {wallets.map((w, i) => (
-            <motion.div
-              key={w.id}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl"
-              style={{ background: 'rgba(255,255,255,0.04)' }}
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="text-base">{w.emoji}</span>
-                <span className="text-sm font-medium" style={{ color: '#d4d2f0' }}>{w.name}</span>
-              </div>
-              <span
-                className="text-sm font-semibold"
-                style={{ color: w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}
+      <AnimatePresence>
+        {showWallets && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="px-4 pb-4 flex flex-col gap-2 relative z-10 overflow-hidden"
+          >
+            {wallets.map((w, i) => (
+              <motion.div
+                key={w.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ delay: i * 0.05 }}
+                className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.04)' }}
               >
-                {formatCOP(w.balance)}
-              </span>
-            </motion.div>
-          ))}
-        </motion.div>
-      )}
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">{w.emoji}</span>
+                  <span className="text-sm font-medium" style={{ color: '#d4d2f0' }}>{w.name}</span>
+                </div>
+                <span
+                  className="text-sm font-semibold"
+                  style={{ color: w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}
+                >
+                  {formatCOP(w.balance)}
+                </span>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

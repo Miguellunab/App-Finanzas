@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AppShell from './layout/AppShell';
 import { CATEGORY_COLORS } from '../lib/utils';
+import WalletCardAnim from './animations/WalletCardAnim';
 
 interface Wallet {
   id: number;
@@ -86,53 +87,26 @@ export default function BilleterasScreen() {
         </motion.div>
 
         {/* Lista de wallets */}
-        <div className="px-4 mt-5 flex flex-col gap-3">
+        <div className="px-4 mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           {loading ? (
-            [...Array(3)].map((_, i) => <div key={i} className="skeleton h-20 rounded-2xl" />)
+            [...Array(3)].map((_, i) => <div key={i} className="skeleton h-40 rounded-2xl" />)
           ) : wallets.length === 0 ? (
-            <div className="text-center py-10">
+            <div className="text-center py-10 col-span-1 md:col-span-2">
               <p className="text-2xl mb-2">💳</p>
               <p className="text-sm" style={{ color: '#9896b0' }}>No hay billeteras</p>
             </div>
           ) : (
-            wallets.map((w, i) => (
-              <motion.div key={w.id}
-                initial={{ opacity: 0, x: -15 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.06 }}
-                className="flex items-center gap-4 p-4 rounded-2xl"
-                style={{ background: '#111118', border: '1px solid #1e1e28' }}
-              >
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                  style={{ background: `${w.color}20`, border: `1px solid ${w.color}40` }}>
-                  {w.emoji}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold" style={{ color: '#f1f0ff' }}>{w.name}</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#5a5870' }}>{w.currency}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-base font-bold" style={{ color: w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>
-                    {formatCOP(w.balance, w.currency)}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-1.5 ml-1">
-                  <button onClick={() => handleEdit(w)}
-                    className="p-1.5 rounded-lg" style={{ background: 'rgba(124,106,247,0.1)', border: 'none', cursor: 'pointer', color: '#7c6af7' }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                    </svg>
-                  </button>
-                  <button onClick={() => handleDelete(w.id)}
-                    className="p-1.5 rounded-lg" style={{ background: 'rgba(244,63,94,0.1)', border: 'none', cursor: 'pointer', color: '#f43f5e' }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    </svg>
-                  </button>
-                </div>
-              </motion.div>
-            ))
+            <AnimatePresence>
+              {wallets.map((w, i) => (
+                <WalletCardAnim 
+                  key={w.id} 
+                  wallet={w} 
+                  onEdit={handleEdit} 
+                  onDelete={handleDelete} 
+                  formatCOP={formatCOP} 
+                />
+              ))}
+            </AnimatePresence>
           )}
         </div>
 

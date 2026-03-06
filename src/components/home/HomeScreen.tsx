@@ -7,6 +7,7 @@ import VoiceButton from '../input/VoiceButton';
 import TextInput from '../input/TextInput';
 import AIModal from '../input/AIModal';
 import AppShell from '../layout/AppShell';
+import SmartCardAnim from '../animations/SmartCardAnim';
 
 interface StatsData {
   totalBalance: number;
@@ -100,6 +101,7 @@ export default function HomeScreen() {
   return (
     <AppShell currentPath="/" title="Inicio">
       <div className="pb-8">
+        <SmartCardAnim />
         {loading ? (
           <div className="px-4 mt-5 flex flex-col gap-4">
             <div className="skeleton h-48 rounded-2xl" />

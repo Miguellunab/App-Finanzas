@@ -101,7 +101,7 @@ export default function MiniChart({ data }: MiniChartProps) {
             interval="preserveStartEnd"
           />
           <YAxis hide />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
           <Area type="monotone" dataKey="income" stroke="#22c55e" strokeWidth={2} fill="url(#incomeGrad)" dot={false} />
           <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} fill="url(#expenseGrad)" dot={false} />
         </AreaChart>

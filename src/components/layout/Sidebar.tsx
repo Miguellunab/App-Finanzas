@@ -121,22 +121,32 @@ export default function Sidebar({ isOpen, onClose, currentPath }: SidebarProps) 
                     onClick={onClose}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 + 0.1 }}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-150 no-underline"
+                    whileHover={{ x: 6, backgroundColor: 'rgba(124,106,247,0.08)' }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ delay: i * 0.05 + 0.1, type: 'spring', stiffness: 300, damping: 20 }}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-150 no-underline group relative overflow-hidden"
                     style={{
                       background: isActive ? 'rgba(124,106,247,0.15)' : 'transparent',
                       color: isActive ? '#7c6af7' : '#9896b0',
                       border: isActive ? '1px solid rgba(124,106,247,0.3)' : '1px solid transparent',
                     }}
                   >
-                    <span style={{ color: isActive ? '#7c6af7' : '#5a5870' }}>
+                    {/* Animated hover gradient */}
+                    <motion.div 
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(124,106,247,0.1)] to-transparent z-[-1]"
+                      initial={{ x: '-100%' }}
+                      variants={{ hover: { x: '100%' } }}
+                      transition={{ duration: 0.6, ease: 'easeInOut' }}
+                    />
+                    
+                    <span style={{ color: isActive ? '#7c6af7' : '#5a5870' }} className="transition-colors group-hover:text-[#7c6af7]">
                       <item.icon />
                     </span>
-                    <span className="font-medium text-sm">{item.label}</span>
+                    <span className="font-medium text-sm transition-colors group-hover:text-[#f1f0ff]">{item.label}</span>
                     {isActive && (
                       <motion.div
                         layoutId="activeIndicator"
-                        className="ml-auto w-1.5 h-1.5 rounded-full"
+                        className="ml-auto w-1.5 h-1.5 rounded-full shadow-[0_0_8px_#7c6af7]"
                         style={{ background: '#7c6af7' }}
                       />
                     )}

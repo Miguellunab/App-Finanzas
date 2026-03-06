@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import AppShell from './layout/AppShell';
+import AILoadingAnim from './animations/AILoadingAnim';
+import StatKPIAnim from './animations/StatKPIAnim';
 
 function formatCOP(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -103,20 +105,23 @@ export default function EstadisticasScreen() {
 
         {/* KPIs */}
         {!loadingStats && stats && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="px-4 mt-4 grid grid-cols-2 gap-3">
+          <div className="px-4 mt-4 grid grid-cols-2 gap-3">
             {[
               { label: 'Ingresos', value: formatFull(stats.income), color: '#22c55e', bg: 'rgba(34,197,94,0.08)' },
               { label: 'Gastos', value: formatFull(stats.expenses), color: '#f43f5e', bg: 'rgba(244,63,94,0.08)' },
               { label: 'Balance', value: formatFull(stats.balance), color: stats.balance >= 0 ? '#22c55e' : '#f43f5e', bg: 'rgba(124,106,247,0.08)' },
               { label: 'Tasa ahorro', value: `${savingsRate}%`, color: '#7c6af7', bg: 'rgba(124,106,247,0.08)' },
-            ].map(kpi => (
-              <div key={kpi.label} className="p-4 rounded-2xl" style={{ background: kpi.bg, border: `1px solid ${kpi.color}25` }}>
-                <p className="text-xs mb-1" style={{ color: '#9896b0' }}>{kpi.label}</p>
-                <p className="text-base font-bold" style={{ color: kpi.color }}>{kpi.value}</p>
-              </div>
+            ].map((kpi, i) => (
+              <StatKPIAnim
+                key={kpi.label}
+                label={kpi.label}
+                value={kpi.value}
+                color={kpi.color}
+                bg={kpi.bg}
+                delay={i * 0.1}
+              />
             ))}
-          </motion.div>
+          </div>
         )}
 
         {/* Tabs */}
@@ -144,7 +149,7 @@ export default function EstadisticasScreen() {
                     <BarChart data={barData} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
                       <XAxis dataKey="date" tick={{ fill: '#5a5870', fontSize: 9 }} tickLine={false} axisLine={false} />
                       <YAxis hide />
-                      <Tooltip content={<CustomBarTooltip />} />
+                      <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
                       <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={20} />
                       <Bar dataKey="expense" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={20} />
                     </BarChart>
@@ -231,15 +236,7 @@ export default function EstadisticasScreen() {
                   </motion.button>
                 </div>
               ) : loadingReview ? (
-                <div className="flex flex-col items-center py-12 gap-4">
-                  <div className="flex gap-2">
-                    {[0, 1, 2].map(i => (
-                      <motion.div key={i} className="w-2 h-2 rounded-full" style={{ background: '#7c6af7' }}
-                        animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.15 }} />
-                    ))}
-                  </div>
-                  <p className="text-sm" style={{ color: '#9896b0' }}>Analizando tus finanzas...</p>
-                </div>
+                <AILoadingAnim />
               ) : (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                   className="p-5 rounded-2xl"
