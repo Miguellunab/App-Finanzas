@@ -20,7 +20,22 @@ export default function VoiceButton({ onTranscribed, disabled }: VoiceButtonProp
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4' });
+      let options: MediaRecorderOptions | undefined;
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        options = { mimeType: 'audio/webm;codecs=opus' };
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        options = { mimeType: 'audio/webm' };
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        options = { mimeType: 'audio/mp4' };
+      }
+
+      let mr: MediaRecorder;
+      try {
+        mr = new MediaRecorder(stream, options);
+      } catch (err) {
+        console.warn('Error with MediaRecorder options, falling back to default', err);
+        mr = new MediaRecorder(stream);
+      }
       mediaRecorderRef.current = mr;
       chunksRef.current = [];
 
@@ -28,8 +43,9 @@ export default function VoiceButton({ onTranscribed, disabled }: VoiceButtonProp
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         setState('processing');
-        const blob = new Blob(chunksRef.current, { type: mr.mimeType });
-        await transcribe(blob, mr.mimeType);
+        const finalMime = mr.mimeType || 'audio/mp4';
+        const blob = new Blob(chunksRef.current, { type: finalMime });
+        await transcribe(blob, finalMime);
       };
 
       mr.start();
@@ -49,9 +65,11 @@ export default function VoiceButton({ onTranscribed, disabled }: VoiceButtonProp
 
   const transcribe = async (blob: Blob, mimeType: string) => {
     try {
-      const ext = mimeType.includes('webm') ? 'webm' : mimeType.includes('mp4') ? 'mp4' : 'ogg';
+      // iOS Safari a veces devuelve mimeType vacío, por defecto es mp4
+      const actualMime = mimeType || 'audio/mp4';
+      const ext = actualMime.includes('webm') ? 'webm' : actualMime.includes('mp4') ? 'mp4' : 'ogg';
       const formData = new FormData();
-      formData.append('audio', new File([blob], `audio.${ext}`, { type: mimeType }));
+      formData.append('audio', new File([blob], `audio.${ext}`, { type: actualMime }));
 
       const res = await fetch('/api/ai/transcribe', { method: 'POST', body: formData });
       const data = await res.json();
