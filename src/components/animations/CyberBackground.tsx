@@ -1,6 +1,20 @@
 import { motion } from 'framer-motion';
+import useLiteMode from '../../hooks/useLiteMode';
 
 export default function CyberBackground() {
+  const liteMode = useLiteMode();
+
+  if (liteMode) {
+    return (
+      <div
+        className="fixed inset-0 pointer-events-none z-[-1]"
+        style={{
+          background: 'radial-gradient(circle at top, rgba(124,106,247,0.12), transparent 38%), radial-gradient(circle at bottom right, rgba(59,130,246,0.1), transparent 34%), #08080c',
+        }}
+      />
+    );
+  }
+
   return (
     <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden" style={{ background: '#08080c' }}>
       <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import Sidebar from './Sidebar';
 import CyberBackground from '../animations/CyberBackground';
 import FloatingNav from './FloatingNav';
+import useLiteMode from '../../hooks/useLiteMode';
 
 interface AppShellProps {
   currentPath: string;
@@ -11,6 +12,16 @@ interface AppShellProps {
 }
 
 function InteractiveTitle({ title }: { title: string }) {
+  const liteMode = useLiteMode();
+
+  if (liteMode) {
+    return (
+      <div className="flex cursor-default font-bold text-sm tracking-[0.24em]" style={{ color: '#f1f0ff' }}>
+        {title}
+      </div>
+    );
+  }
+
   return (
     <motion.div 
       className="flex cursor-default font-bold text-sm tracking-widest relative"
@@ -51,6 +62,7 @@ function InteractiveTitle({ title }: { title: string }) {
 
 export default function AppShell({ currentPath, title, children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const liteMode = useLiteMode();
 
   return (
     <div className="min-h-dvh flex flex-col relative z-10" style={{ background: 'transparent', maxWidth: '480px', margin: '0 auto' }}>
@@ -60,14 +72,14 @@ export default function AppShell({ currentPath, title, children }: AppShellProps
         className="sticky top-0 z-30 flex items-center justify-between px-5 relative overflow-hidden"
         style={{
           background: 'rgba(10,10,15,0.65)',
-          backdropFilter: 'blur(20px)',
+          backdropFilter: liteMode ? 'blur(8px)' : 'blur(20px)',
           borderBottom: '1px solid rgba(124,106,247,0.2)',
           paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
           paddingBottom: '12px',
         }}
       >
         {/* Animated header glow */}
-        <div className="absolute inset-0 z-[-1] opacity-50" style={{ background: 'linear-gradient(90deg, transparent, rgba(124,106,247,0.1), transparent)' }} />
+        {!liteMode && <div className="absolute inset-0 z-[-1] opacity-50" style={{ background: 'linear-gradient(90deg, transparent, rgba(124,106,247,0.1), transparent)' }} />}
 
         <button
           onClick={() => setSidebarOpen(true)}
@@ -92,9 +104,11 @@ export default function AppShell({ currentPath, title, children }: AppShellProps
             💸
           </div>
           {/* Pulsing glow behind the money icon */}
-          <div className="absolute inset-0 rounded-xl blur-md opacity-70 group-hover:opacity-100 transition-opacity"
-            style={{ background: 'linear-gradient(135deg, #7c6af7, #ec4899)', animation: 'pulse 2s infinite' }}
-          />
+          {!liteMode && (
+            <div className="absolute inset-0 rounded-xl blur-md opacity-70 group-hover:opacity-100 transition-opacity"
+              style={{ background: 'linear-gradient(135deg, #7c6af7, #ec4899)', animation: 'pulse 2s infinite' }}
+            />
+          )}
         </div>
       </header>
 

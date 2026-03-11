@@ -8,6 +8,7 @@ import TextInput from '../input/TextInput';
 import AIModal from '../input/AIModal';
 import AppShell from '../layout/AppShell';
 import SmartCardAnim from '../animations/SmartCardAnim';
+import useLiteMode from '../../hooks/useLiteMode';
 
 interface StatsData {
   totalBalance: number;
@@ -18,6 +19,7 @@ interface StatsData {
 }
 
 export default function HomeScreen() {
+  const liteMode = useLiteMode();
   const [stats, setStats] = useState<StatsData | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
@@ -127,7 +129,7 @@ export default function HomeScreen() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: liteMode ? 0.15 : 0.4 }}
           className="mx-4 mt-5 rounded-2xl p-5"
           style={{ background: '#111118', border: '1px solid #1e1e28' }}
         >

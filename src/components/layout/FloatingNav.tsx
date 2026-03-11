@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import useLiteMode from '../../hooks/useLiteMode';
 
 const navItems = [
   { id: 'home', href: '/', icon: HomeIcon, color: '#7c6af7' },
@@ -87,19 +88,21 @@ interface FloatingNavProps {
 }
 
 export default function FloatingNav({ currentPath }: FloatingNavProps) {
+  const liteMode = useLiteMode();
+
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full px-4" style={{ maxWidth: '440px' }}>
       <div 
         className="flex items-center justify-around rounded-3xl p-2 relative overflow-hidden"
         style={{
           background: 'rgba(17, 17, 24, 0.7)',
-          backdropFilter: 'blur(20px)',
+          backdropFilter: liteMode ? 'blur(10px)' : 'blur(20px)',
           border: '1px solid rgba(255, 255, 255, 0.05)',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
         }}
       >
         {/* Animated Background SVG for the Bar itself */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" xmlns="http://www.w3.org/2000/svg">
+        {!liteMode && <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <filter id="nav-glow">
               <feGaussianBlur stdDeviation="8" result="blur" />
@@ -115,7 +118,7 @@ export default function FloatingNav({ currentPath }: FloatingNavProps) {
             }}
             transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
           />
-        </svg>
+        </svg>}
 
         {navItems.map((item) => {
           const isActive = currentPath === item.href || (item.href !== '/' && currentPath.startsWith(item.href));
@@ -160,7 +163,7 @@ export default function FloatingNav({ currentPath }: FloatingNavProps) {
               <motion.div
                 variants={{
                   rest: { y: 0, scale: 1 },
-                  hover: { y: -2, scale: 1.1 }
+                  hover: liteMode ? { y: 0, scale: 1 } : { y: -2, scale: 1.1 }
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
               >

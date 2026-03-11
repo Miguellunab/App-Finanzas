@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
+import useLiteMode from '../../hooks/useLiteMode';
 
 export default function CashFlow() {
+  const liteMode = useLiteMode();
   const nodes = [
     { x: 50, y: 150, color: '#ec4899', label: 'Gastos' },
     { x: 200, y: 50, color: '#3b82f6', label: 'Bancos' },
@@ -35,8 +37,7 @@ export default function CashFlow() {
         <path d="M 200 50 Q 275 100 350 150" fill="none" stroke="url(#flow-right)" strokeWidth="3" opacity="0.4" />
         <path d="M 200 50 Q 125 100 50 150" fill="none" stroke="url(#flow-left)" strokeWidth="3" opacity="0.4" />
 
-        {/* Flowing particles (Income to Bank) */}
-        {[0, 1, 2].map((i) => (
+        {!liteMode && [0, 1, 2].map((i) => (
           <circle key={`inc-particle-${i}`} r="4" fill="#22c55e" filter="url(#neon-glow)">
             <animateMotion
               dur="3s"
@@ -54,8 +55,7 @@ export default function CashFlow() {
           </circle>
         ))}
 
-        {/* Flowing particles (Bank to Expenses) */}
-        {[0, 1, 2].map((i) => (
+        {!liteMode && [0, 1, 2].map((i) => (
           <circle key={`exp-particle-${i}`} r="4" fill="#ec4899" filter="url(#neon-glow)">
             <animateMotion
               dur="2.5s"
@@ -84,24 +84,23 @@ export default function CashFlow() {
               stroke={node.color}
               strokeWidth="2"
               filter="url(#neon-glow)"
-              animate={{
-                boxShadow: [`0 0 10px ${node.color}`, `0 0 30px ${node.color}`, `0 0 10px ${node.color}`],
-                scale: [1, 1.05, 1]
-              }}
-              transition={{ duration: 2, repeat: Infinity, delay: i * 0.5 }}
+              animate={liteMode ? undefined : { scale: [1, 1.05, 1] }}
+              transition={liteMode ? undefined : { duration: 2, repeat: Infinity, delay: i * 0.5 }}
             />
             {/* Pulse ring */}
-            <motion.circle
-              cx={node.x}
-              cy={node.y}
-              r="20"
-              fill="none"
-              stroke={node.color}
-              strokeWidth="1"
-              initial={{ scale: 1, opacity: 0.8 }}
-              animate={{ scale: 2, opacity: 0 }}
-              transition={{ duration: 2, repeat: Infinity, delay: i * 0.5 }}
-            />
+            {!liteMode && (
+              <motion.circle
+                cx={node.x}
+                cy={node.y}
+                r="20"
+                fill="none"
+                stroke={node.color}
+                strokeWidth="1"
+                initial={{ scale: 1, opacity: 0.8 }}
+                animate={{ scale: 2, opacity: 0 }}
+                transition={{ duration: 2, repeat: Infinity, delay: i * 0.5 }}
+              />
+            )}
             
             <text
               x={node.x}
@@ -121,8 +120,8 @@ export default function CashFlow() {
         <motion.path
           d="M 190 45 L 210 45 L 210 55 L 190 55 Z"
           fill="#3b82f6"
-          animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 2, repeat: Infinity }}
+          animate={liteMode ? undefined : { opacity: [0.5, 1, 0.5] }}
+          transition={liteMode ? undefined : { duration: 2, repeat: Infinity }}
         />
         <motion.path
           d="M 194 40 L 206 40 L 200 35 Z"

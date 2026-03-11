@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
+import useLiteMode from '../../hooks/useLiteMode';
 
 interface Wallet {
   id: number;
@@ -20,6 +21,7 @@ interface WalletCardAnimProps {
 export default function WalletCardAnim({ wallet, onEdit, onDelete, formatCOP }: WalletCardAnimProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const liteMode = useLiteMode();
 
   // 3D rotation values
   const x = useMotionValue(0);
@@ -33,6 +35,7 @@ export default function WalletCardAnim({ wallet, onEdit, onDelete, formatCOP }: 
   const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-10deg", "10deg"]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (liteMode) return;
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
     const width = rect.width;
@@ -66,14 +69,14 @@ export default function WalletCardAnim({ wallet, onEdit, onDelete, formatCOP }: 
     <motion.div
       ref={cardRef}
       onMouseMove={handleMouseMove}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={() => !liteMode && setIsHovered(true)}
       onMouseLeave={handleMouseLeave}
       className="relative w-full rounded-2xl p-5 overflow-hidden flex flex-col justify-between"
       // Basic fallback background
       style={{
         rotateX,
         rotateY,
-        transformStyle: "preserve-3d",
+        transformStyle: liteMode ? 'flat' : "preserve-3d",
         background: `linear-gradient(135deg, rgba(${colorRGB}, 0.1) 0%, rgba(17, 17, 24, 0.8) 100%)`,
         border: `1px solid rgba(${colorRGB}, 0.2)`,
         minHeight: '160px',
@@ -90,8 +93,8 @@ export default function WalletCardAnim({ wallet, onEdit, onDelete, formatCOP }: 
           preserveAspectRatio="none"
           initial={{ opacity: 0.5 }}
           animate={{
-            scale: isHovered ? 1.1 : 1,
-            opacity: isHovered ? 0.8 : 0.5,
+            scale: liteMode ? 1 : isHovered ? 1.1 : 1,
+            opacity: liteMode ? 0.4 : isHovered ? 0.8 : 0.5,
           }}
           transition={{ duration: 0.5 }}
         >
@@ -117,40 +120,46 @@ export default function WalletCardAnim({ wallet, onEdit, onDelete, formatCOP }: 
             opacity="0.2"
           />
           {/* Animated floating circles matching the wallet color */}
-          <motion.circle
-            cx="160" cy="40" r="20"
-            fill={`rgba(${colorRGB}, 0.1)`}
-            animate={{
-              y: isHovered ? [-5, 5, -5] : 0,
-            }}
-            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-          />
-          <motion.circle
-            cx="40" cy="140" r="30"
-            fill={`rgba(${colorRGB}, 0.05)`}
-            animate={{
-              scale: isHovered ? [1, 1.1, 1] : 1,
-            }}
-            transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-          />
+          {!liteMode && (
+            <motion.circle
+              cx="160" cy="40" r="20"
+              fill={`rgba(${colorRGB}, 0.1)`}
+              animate={{
+                y: isHovered ? [-5, 5, -5] : 0,
+              }}
+              transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+            />
+          )}
+          {!liteMode && (
+            <motion.circle
+              cx="40" cy="140" r="30"
+              fill={`rgba(${colorRGB}, 0.05)`}
+              animate={{
+                scale: isHovered ? [1, 1.1, 1] : 1,
+              }}
+              transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+            />
+          )}
         </motion.svg>
       </div>
 
       {/* Glossy overlay reflection */}
-      <motion.div
-        className="absolute inset-0 z-0 pointer-events-none"
-        style={{
-          background: 'linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.03) 25%, transparent 30%)',
-          backgroundSize: '200% 100%',
-        }}
-        animate={{
-          backgroundPosition: isHovered ? ['200% 0', '-100% 0'] : '200% 0',
-        }}
-        transition={{ duration: 1.5, ease: "easeInOut" }}
-      />
+      {!liteMode && (
+        <motion.div
+          className="absolute inset-0 z-0 pointer-events-none"
+          style={{
+            background: 'linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.03) 25%, transparent 30%)',
+            backgroundSize: '200% 100%',
+          }}
+          animate={{
+            backgroundPosition: isHovered ? ['200% 0', '-100% 0'] : '200% 0',
+          }}
+          transition={{ duration: 1.5, ease: "easeInOut" }}
+        />
+      )}
 
       {/* Content - Must have transformZ to pop out in 3D */}
-      <div className="relative z-10 flex justify-between items-start" style={{ transform: "translateZ(30px)" }}>
+      <div className="relative z-10 flex justify-between items-start" style={{ transform: liteMode ? 'none' : "translateZ(30px)" }}>
         <div className="flex items-center gap-3">
           <div 
             className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl backdrop-blur-md"
@@ -201,7 +210,7 @@ export default function WalletCardAnim({ wallet, onEdit, onDelete, formatCOP }: 
         </div>
       </div>
 
-      <div className="relative z-10 mt-6" style={{ transform: "translateZ(40px)" }}>
+      <div className="relative z-10 mt-6" style={{ transform: liteMode ? 'none' : "translateZ(40px)" }}>
         <p className="text-xs font-medium opacity-60 text-[#9896b0] mb-1">Saldo Actual</p>
         <div className="flex items-baseline gap-2">
           <motion.h2 
@@ -217,17 +226,19 @@ export default function WalletCardAnim({ wallet, onEdit, onDelete, formatCOP }: 
       </div>
       
       {/* Decorative dots pattern at the bottom */}
-      <div className="absolute bottom-4 right-4 flex gap-1 z-10" style={{ transform: "translateZ(20px)" }}>
-        {[...Array(4)].map((_, i) => (
-          <motion.div 
-            key={i}
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ background: wallet.color }}
-            animate={{ opacity: isHovered ? [0.3, 1, 0.3] : 0.3 }}
-            transition={{ repeat: Infinity, duration: 1.5, delay: i * 0.2 }}
-          />
-        ))}
-      </div>
+      {!liteMode && (
+        <div className="absolute bottom-4 right-4 flex gap-1 z-10" style={{ transform: "translateZ(20px)" }}>
+          {[...Array(4)].map((_, i) => (
+            <motion.div 
+              key={i}
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: wallet.color }}
+              animate={{ opacity: isHovered ? [0.3, 1, 0.3] : 0.3 }}
+              transition={{ repeat: Infinity, duration: 1.5, delay: i * 0.2 }}
+            />
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }

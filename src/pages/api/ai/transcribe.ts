@@ -5,6 +5,9 @@ import { getGroq, MODELS } from '../../../lib/groq';
 const VALID_EXTENSIONS: Record<string, string> = {
   'audio/webm': 'webm',
   'audio/mp4': 'mp4',
+  'audio/m4a': 'm4a',
+  'audio/x-m4a': 'm4a',
+  'audio/aac': 'aac',
   'audio/ogg': 'ogg',
   'audio/wav': 'wav',
   'audio/mpeg': 'mp3',
@@ -17,6 +20,13 @@ function getExtension(mimeType: string): string {
   // Ignorar parámetros como ";codecs=opus"
   const base = mimeType.split(';')[0].trim().toLowerCase();
   return VALID_EXTENSIONS[base] ?? 'webm';
+}
+
+function getNormalizedMimeType(ext: string): string {
+  if (ext === 'm4a' || ext === 'mp4') return 'audio/mp4';
+  if (ext === 'aac') return 'audio/aac';
+  if (ext === 'mp3') return 'audio/mpeg';
+  return `audio/${ext}`;
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -32,7 +42,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Reconstruir el File con nombre y tipo limpios para que el SDK no falle la validación
     const ext = getExtension(audioFile.type);
-    const cleanType = `audio/${ext}`;
+    const cleanType = getNormalizedMimeType(ext);
     const arrayBuffer = await audioFile.arrayBuffer();
     const cleanFile = new File([arrayBuffer], `audio.${ext}`, { type: cleanType });
 

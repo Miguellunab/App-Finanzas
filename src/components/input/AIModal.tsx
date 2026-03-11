@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CATEGORY_COLORS } from '../../lib/utils';
 import CashFlow from '../animations/CashFlow';
+import useLiteMode from '../../hooks/useLiteMode';
 
 interface AIInterpretation {
   type: 'income' | 'expense' | 'transfer';
@@ -42,6 +43,7 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategoryEmoji, setNewCategoryEmoji] = useState('');
   const [loading, setLoading] = useState(false);
+  const liteMode = useLiteMode();
 
   const data = editedData ?? interpretation;
 
@@ -111,7 +113,7 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
           {/* Backdrop */}
           <motion.div
             className="fixed inset-0 z-50"
-            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: liteMode ? 'blur(3px)' : 'blur(8px)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -157,7 +159,14 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
             </div>
 
             <div className="w-full" style={{ borderBottom: '1px solid #1e1e28', background: 'radial-gradient(circle at 50% 50%, rgba(124,106,247,0.05) 0%, transparent 100%)' }}>
-               <CashFlow />
+              {liteMode ? (
+                <div className="px-5 py-4 flex items-center justify-between text-xs">
+                  <span style={{ color: '#9896b0' }}>Revision rapida antes de guardar</span>
+                  <span style={{ color: typeColors[data.type] }}>{formatCOP(data.amount, data.currency)}</span>
+                </div>
+              ) : (
+                <CashFlow />
+              )}
             </div>
 
             <div className="p-5 flex flex-col gap-4">

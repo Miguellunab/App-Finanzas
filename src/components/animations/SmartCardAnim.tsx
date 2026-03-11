@@ -1,6 +1,52 @@
 import { motion } from 'framer-motion';
+import useLiteMode from '../../hooks/useLiteMode';
 
 export default function SmartCardAnim() {
+  const liteMode = useLiteMode();
+
+  if (liteMode) {
+    return (
+      <div className="w-full px-4 pt-5">
+        <div
+          className="rounded-3xl p-5 overflow-hidden relative"
+          style={{
+            minHeight: '160px',
+            background: 'linear-gradient(135deg, #1a1530, #12112a)',
+            border: '1px solid rgba(124,106,247,0.2)',
+            boxShadow: '0 16px 40px rgba(0,0,0,0.28)',
+          }}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: 'linear-gradient(120deg, transparent 25%, rgba(255,255,255,0.05) 50%, transparent 75%)' }}
+          />
+          <div className="relative flex h-full flex-col justify-between gap-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.28em]" style={{ color: '#9896b0' }}>Finanzas AI</p>
+                <p className="mt-2 text-2xl font-bold" style={{ color: '#f1f0ff' }}>Control rapido</p>
+              </div>
+              <div className="rounded-2xl px-3 py-2 text-sm font-semibold" style={{ background: 'rgba(124,106,247,0.14)', color: '#bfaaff' }}>
+                IA
+              </div>
+            </div>
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs" style={{ color: '#5a5870' }}>Listo para registrar</p>
+                <p className="mt-1 text-sm font-medium" style={{ color: '#f1f0ff' }}>voz o texto sin castigar el celular</p>
+              </div>
+              <div className="flex gap-2">
+                <span className="h-2 w-2 rounded-full" style={{ background: '#22c55e' }} />
+                <span className="h-2 w-2 rounded-full" style={{ background: '#3b82f6' }} />
+                <span className="h-2 w-2 rounded-full" style={{ background: '#ec4899' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full flex justify-center items-center py-8 relative overflow-hidden" style={{ minHeight: '220px' }}>
       <svg

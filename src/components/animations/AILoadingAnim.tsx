@@ -1,7 +1,30 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import useLiteMode from '../../hooks/useLiteMode';
 
 export default function AILoadingAnim() {
+  const liteMode = useLiteMode();
+
+  if (liteMode) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 w-full">
+        <div className="flex items-center gap-2">
+          {[0, 1, 2].map((dot) => (
+            <motion.div
+              key={dot}
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ background: dot === 1 ? '#ec4899' : '#7c6af7' }}
+              animate={{ opacity: [0.35, 1, 0.35], y: [0, -4, 0] }}
+              transition={{ duration: 0.8, repeat: Infinity, delay: dot * 0.12 }}
+            />
+          ))}
+        </div>
+        <p className="mt-4 text-sm font-semibold text-[#f1f0ff]">Analizando con IA...</p>
+        <p className="text-xs text-[#7c6af7]">Modo ligero activado para ir mas fluido</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center justify-center py-10 w-full">
       <div className="relative w-32 h-32 flex items-center justify-center">

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AppShell from './layout/AppShell';
 import AIModal from './input/AIModal';
 import TextInput from './input/TextInput';
+import useLiteMode from '../hooks/useLiteMode';
 
 interface Transaction {
   id: number;
@@ -33,6 +34,7 @@ function formatDate(d: string) {
 }
 
 export default function HistorialScreen() {
+  const liteMode = useLiteMode();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -108,7 +110,7 @@ export default function HistorialScreen() {
     <AppShell currentPath="/historial" title="Historial">
       <div className="pb-8">
         {/* Barra de búsqueda y filtros */}
-        <div className="sticky top-0 z-10 px-4 pt-4 pb-3" style={{ background: 'rgba(10,10,15,0.9)', backdropFilter: 'blur(12px)' }}>
+        <div className="sticky top-0 z-10 px-4 pt-4 pb-3" style={{ background: 'rgba(10,10,15,0.9)', backdropFilter: liteMode ? 'blur(6px)' : 'blur(12px)' }}>
           {/* Búsqueda */}
           <div className="flex items-center gap-2 rounded-2xl px-4 py-3 mb-3"
             style={{ background: '#111118', border: '1px solid #2a2a38' }}>

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AppShell from './layout/AppShell';
 import { CATEGORY_COLORS } from '../lib/utils';
 import WalletCardAnim from './animations/WalletCardAnim';
+import useLiteMode from '../hooks/useLiteMode';
 
 interface Wallet {
   id: number;
@@ -22,6 +23,7 @@ const CURRENCIES = ['COP', 'USD', 'EUR'];
 const EMOJIS = ['💳', '💵', '🏦', '💜', '🟡', '🔵', '💰', '🏧', '💸', '🎯'];
 
 export default function BilleterasScreen() {
+  const liteMode = useLiteMode();
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -79,6 +81,7 @@ export default function BilleterasScreen() {
       <div className="pb-8">
         {/* Balance total header */}
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+          transition={liteMode ? { duration: 0.2 } : undefined}
           className="mx-4 mt-5 p-5 rounded-2xl"
           style={{ background: 'linear-gradient(135deg, #1a1530, #12112a)', border: '1px solid rgba(124,106,247,0.2)' }}>
           <p className="text-xs" style={{ color: '#5a5870' }}>Total en billeteras</p>
@@ -131,7 +134,7 @@ export default function BilleterasScreen() {
         {showForm && (
           <>
             <motion.div className="fixed inset-0 z-50"
-              style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+              style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: liteMode ? 'blur(3px)' : 'blur(8px)' }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={resetForm} />
             <div className="fixed inset-0 z-50 flex items-end justify-center pb-[3%] px-4 pointer-events-none">

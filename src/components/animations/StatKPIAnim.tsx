@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { motion, useAnimation, useInView } from 'framer-motion';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import useLiteMode from '../../hooks/useLiteMode';
 
 interface StatKPIAnimProps {
   label: string;
@@ -11,6 +12,7 @@ interface StatKPIAnimProps {
 
 export default function StatKPIAnim({ label, value, color, bg, delay = 0 }: StatKPIAnimProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const liteMode = useLiteMode();
   
   // Extract rgb for glowing effects
   const hexToRGB = (hex: string) => {
@@ -27,9 +29,9 @@ export default function StatKPIAnim({ label, value, color, bg, delay = 0 }: Stat
       initial={{ opacity: 0, scale: 0.9, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ delay, type: "spring", stiffness: 300, damping: 20 }}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={() => !liteMode && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      whileHover={{ y: -5 }}
+      whileHover={liteMode ? undefined : { y: -5 }}
       className="relative p-4 rounded-2xl overflow-hidden group"
       style={{ 
         background: bg, 
@@ -39,16 +41,18 @@ export default function StatKPIAnim({ label, value, color, bg, delay = 0 }: Stat
       }}
     >
       {/* Animated background glow on hover */}
-      <motion.div
-        className="absolute -inset-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-        style={{
-          background: `radial-gradient(circle at center, rgba(${colorRGB}, 0.15) 0%, transparent 60%)`,
-        }}
-        animate={{
-          scale: isHovered ? [1, 1.2, 1] : 1,
-        }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-      />
+      {!liteMode && (
+        <motion.div
+          className="absolute -inset-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+          style={{
+            background: `radial-gradient(circle at center, rgba(${colorRGB}, 0.15) 0%, transparent 60%)`,
+          }}
+          animate={{
+            scale: isHovered ? [1, 1.2, 1] : 1,
+          }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        />
+      )}
 
       {/* Decorative corner accent */}
       <div 
@@ -66,8 +70,8 @@ export default function StatKPIAnim({ label, value, color, bg, delay = 0 }: Stat
           <motion.div 
             className="w-1.5 h-1.5 rounded-full"
             style={{ backgroundColor: color }}
-            animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
-            transition={{ duration: 2, repeat: Infinity, delay }}
+            animate={liteMode ? undefined : { opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
+            transition={liteMode ? undefined : { duration: 2, repeat: Infinity, delay }}
           />
         </div>
         <motion.p 
@@ -82,17 +86,19 @@ export default function StatKPIAnim({ label, value, color, bg, delay = 0 }: Stat
       </div>
 
       {/* Mini spark lines in background */}
-      <svg className="absolute bottom-0 left-0 w-full h-8 opacity-20 pointer-events-none" preserveAspectRatio="none">
-        <motion.path
-          d="M 0,32 Q 20,10 40,25 T 80,15 T 120,20 T 160,5"
-          fill="none"
-          stroke={color}
-          strokeWidth="1.5"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.5, delay: delay + 0.2, ease: "easeOut" }}
-        />
-      </svg>
+      {!liteMode && (
+        <svg className="absolute bottom-0 left-0 w-full h-8 opacity-20 pointer-events-none" preserveAspectRatio="none">
+          <motion.path
+            d="M 0,32 Q 20,10 40,25 T 80,15 T 120,20 T 160,5"
+            fill="none"
+            stroke={color}
+            strokeWidth="1.5"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 1.5, delay: delay + 0.2, ease: "easeOut" }}
+          />
+        </svg>
+      )}
     </motion.div>
   );
 }

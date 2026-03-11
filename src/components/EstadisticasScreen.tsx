@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import AppShell from './layout/AppShell';
 import AILoadingAnim from './animations/AILoadingAnim';
 import StatKPIAnim from './animations/StatKPIAnim';
+import useLiteMode from '../hooks/useLiteMode';
 
 function formatCOP(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -43,6 +44,7 @@ const CustomBarTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function EstadisticasScreen() {
+  const liteMode = useLiteMode();
   const [stats, setStats] = useState<any>(null);
   const [review, setReview] = useState<string | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -150,8 +152,8 @@ export default function EstadisticasScreen() {
                       <XAxis dataKey="date" tick={{ fill: '#5a5870', fontSize: 9 }} tickLine={false} axisLine={false} />
                       <YAxis hide />
                       <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-                      <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={20} />
-                      <Bar dataKey="expense" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                      <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={20} isAnimationActive={!liteMode} />
+                      <Bar dataKey="expense" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={20} isAnimationActive={!liteMode} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -164,7 +166,7 @@ export default function EstadisticasScreen() {
                   <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
                       <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
-                        dataKey="value" paddingAngle={3}>
+                        dataKey="value" paddingAngle={3} isAnimationActive={!liteMode}>
                         {pieData.map((entry: any, index: number) => (
                           <Cell key={index} fill={entry.color} />
                         ))}

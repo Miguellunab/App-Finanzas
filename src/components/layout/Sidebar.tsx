@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import useLiteMode from '../../hooks/useLiteMode';
 
 const navItems = [
   { href: '/', label: 'Inicio', icon: HomeIcon },
@@ -59,6 +60,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose, currentPath }: SidebarProps) {
+  const liteMode = useLiteMode();
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -66,7 +69,7 @@ export default function Sidebar({ isOpen, onClose, currentPath }: SidebarProps) 
           {/* Overlay */}
           <motion.div
             className="fixed inset-0 z-40"
-            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: liteMode ? 'blur(2px)' : 'blur(4px)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -121,7 +124,7 @@ export default function Sidebar({ isOpen, onClose, currentPath }: SidebarProps) 
                     onClick={onClose}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    whileHover={{ x: 6, backgroundColor: 'rgba(124,106,247,0.08)' }}
+                    whileHover={liteMode ? undefined : { x: 6, backgroundColor: 'rgba(124,106,247,0.08)' }}
                     whileTap={{ scale: 0.98 }}
                     transition={{ delay: i * 0.05 + 0.1, type: 'spring', stiffness: 300, damping: 20 }}
                     className="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-150 no-underline group relative overflow-hidden"
@@ -132,12 +135,14 @@ export default function Sidebar({ isOpen, onClose, currentPath }: SidebarProps) 
                     }}
                   >
                     {/* Animated hover gradient */}
-                    <motion.div 
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(124,106,247,0.1)] to-transparent z-[-1]"
-                      initial={{ x: '-100%' }}
-                      variants={{ hover: { x: '100%' } }}
-                      transition={{ duration: 0.6, ease: 'easeInOut' }}
-                    />
+                    {!liteMode && (
+                      <motion.div 
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(124,106,247,0.1)] to-transparent z-[-1]"
+                        initial={{ x: '-100%' }}
+                        variants={{ hover: { x: '100%' } }}
+                        transition={{ duration: 0.6, ease: 'easeInOut' }}
+                      />
+                    )}
                     
                     <span style={{ color: isActive ? '#7c6af7' : '#5a5870' }} className="transition-colors group-hover:text-[#7c6af7]">
                       <item.icon />
