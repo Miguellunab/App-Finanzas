@@ -4,6 +4,7 @@ import MiniChart from './MiniChart';
 import RecentTransactions from './RecentTransactions';
 import VoiceButton from '../input/VoiceButton';
 import TextInput from '../input/TextInput';
+import AIModal from '../input/AIModal';
 import AppShell from '../layout/AppShell';
 
 interface StatsData {
@@ -17,10 +18,13 @@ interface StatsData {
 export default function HomeScreen() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [interpretation, setInterpretation] = useState<any>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [interpreting, setInterpreting] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [micText, setMicText] = useState('');
-  const [micLog, setMicLog] = useState('');
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -29,13 +33,17 @@ export default function HomeScreen() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [statsRes, txRes] = await Promise.all([
+      const [statsRes, txRes, walletsRes, catsRes] = await Promise.all([
         fetch('/api/stats?period=all'),
         fetch('/api/transactions?limit=10'),
+        fetch('/api/wallets'),
+        fetch('/api/categories'),
       ]);
-      const [statsData, txData] = await Promise.all([statsRes.json(), txRes.json()]);
+      const [statsData, txData, walletsData, catsData] = await Promise.all([statsRes.json(), txRes.json(), walletsRes.json(), catsRes.json()]);
       setStats(statsData.data);
       setTransactions(txData.data ?? []);
+      setWallets(walletsData.data ?? []);
+      setCategories(catsData.data ?? []);
     } catch {
       showToast('Error al cargar datos', 'error');
     } finally {
@@ -45,15 +53,31 @@ export default function HomeScreen() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const handleTranscribed = (text: string, log?: string) => {
-    setMicText(text);
-    setMicLog(log ?? '');
-    showToast('Audio transcrito');
+  const handleTextOrVoice = async (text: string) => {
+    setInterpreting(true);
+    try {
+      const res = await fetch('/api/ai/interpret', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? 'Error al interpretar');
+      setInterpretation(data.data);
+      setModalOpen(true);
+    } catch (e: any) {
+      showToast(e.message ?? 'Error al interpretar', 'error');
+    } finally {
+      setInterpreting(false);
+    }
   };
 
-  const handleText = (text: string) => {
-    setMicText(text);
-    setMicLog('Entrada manual, sin analisis IA.');
+  const handleConfirm = async (txData: any) => {
+    const res = await fetch('/api/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(txData) });
+    if (!res.ok) {
+      const d = await res.json();
+      throw new Error(d.error ?? 'Error al guardar');
+    }
+    setModalOpen(false);
+    setInterpretation(null);
+    showToast('Transaccion guardada');
+    await fetchAll();
   };
 
   const handleDelete = async (id: number) => {
@@ -73,60 +97,31 @@ export default function HomeScreen() {
           </div>
         ) : (
           <>
-            {stats && <BalanceCard totalBalance={stats.totalBalance} income={stats.income} expenses={stats.expenses} wallets={stats.wallets} />}
+            {stats && <BalanceCard totalBalance={stats.totalBalance} income={stats.income} expenses={stats.expenses} wallets={stats.wallets} onRefresh={fetchAll} />}
             {stats && <MiniChart data={stats.byDay} />}
             <RecentTransactions transactions={transactions} onDelete={handleDelete} />
           </>
         )}
 
         <div className="mx-4 mt-5 rounded-2xl p-5" style={{ background: '#111118', border: '1px solid #1e1e28' }}>
-          <p className="text-xs font-semibold mb-4 text-center" style={{ color: '#9896b0' }}>
-            Probar microfono
-          </p>
-
+          <p className="text-xs font-semibold mb-4 text-center" style={{ color: '#9896b0' }}>Registrar movimiento</p>
           <div className="flex justify-center mb-5">
-            <VoiceButton onTranscribed={handleTranscribed} onLog={setMicLog} />
+            <VoiceButton onTranscribed={handleTextOrVoice} disabled={interpreting} />
           </div>
-
           <div className="flex items-center gap-3 mb-4">
             <div style={{ flex: 1, height: '1px', background: '#1e1e28' }} />
             <span className="text-xs" style={{ color: '#5a5870' }}>o escribe</span>
             <div style={{ flex: 1, height: '1px', background: '#1e1e28' }} />
           </div>
-
-          <TextInput onSubmit={handleText} />
-
-          {(micText || micLog) && (
-            <div className="mt-4 rounded-xl p-3" style={{ background: '#18181f', border: '1px solid #2a2a38' }}>
-              {micText && (
-                <>
-                  <p className="text-xs font-semibold mb-1" style={{ color: '#22c55e' }}>Texto</p>
-                  <p className="text-sm mb-3 whitespace-pre-wrap" style={{ color: '#f1f0ff' }}>{micText}</p>
-                </>
-              )}
-              {micLog && (
-                <>
-                  <p className="text-xs font-semibold mb-1" style={{ color: '#7c6af7' }}>Log completo</p>
-                  <pre className="text-[11px] whitespace-pre-wrap overflow-auto max-h-64" style={{ color: '#9896b0' }}>{micLog}</pre>
-                </>
-              )}
-            </div>
-          )}
+          <TextInput onSubmit={handleTextOrVoice} disabled={interpreting} />
+          {interpreting && <p className="mt-3 text-xs text-center" style={{ color: '#7c6af7' }}>Analizando...</p>}
         </div>
       </div>
 
+      <AIModal isOpen={modalOpen} interpretation={interpretation} wallets={wallets} categories={categories} onConfirm={handleConfirm} onCancel={() => { setModalOpen(false); setInterpretation(null); }} />
+
       {toast && (
-        <div
-          className="fixed bottom-6 left-1/2 z-[100] px-5 py-3 rounded-2xl text-sm font-medium"
-          style={{
-            transform: 'translateX(-50%)',
-            background: toast.type === 'success' ? '#18181f' : '#2a0e14',
-            border: `1px solid ${toast.type === 'success' ? '#2a2a38' : '#f43f5e40'}`,
-            color: toast.type === 'success' ? '#f1f0ff' : '#f43f5e',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <div className="fixed bottom-6 left-1/2 z-[100] px-5 py-3 rounded-2xl text-sm font-medium" style={{ transform: 'translateX(-50%)', background: toast.type === 'success' ? '#18181f' : '#2a0e14', border: `1px solid ${toast.type === 'success' ? '#2a2a38' : '#f43f5e40'}`, color: toast.type === 'success' ? '#f1f0ff' : '#f43f5e', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', whiteSpace: 'nowrap' }}>
           {toast.msg}
         </div>
       )}

@@ -3,9 +3,11 @@ import { getDb, schema } from '../../lib/db';
 import { eq, sql, gte, lte, and } from 'drizzle-orm';
 import { getGroq, MODELS, STATS_SYSTEM_PROMPT } from '../../lib/groq';
 import { getCurrentMonthRange } from '../../lib/utils';
+import { ensureWalletColumns } from '../../lib/walletColumns';
 
 export const GET: APIRoute = async ({ url }) => {
   try {
+    await ensureWalletColumns();
     const db = getDb();
     const searchParams = url.searchParams;
     const period = searchParams.get('period') ?? 'month'; // month | all
@@ -86,11 +88,15 @@ export const GET: APIRoute = async ({ url }) => {
       color: schema.wallets.color,
       currency: schema.wallets.currency,
       balance: schema.wallets.balance,
+      type: schema.wallets.type,
+      interestRate: schema.wallets.interestRate,
+      interestPeriod: schema.wallets.interestPeriod,
+      includeInBalance: schema.wallets.includeInBalance,
     })
     .from(schema.wallets)
     .where(eq(schema.wallets.isArchived, false));
 
-    const totalBalance = walletBalances.reduce((acc, w) => acc + w.balance, 0);
+    const totalBalance = walletBalances.reduce((acc, w) => acc + (w.includeInBalance ? w.balance : 0), 0);
 
     return new Response(JSON.stringify({
       data: {

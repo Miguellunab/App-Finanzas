@@ -12,7 +12,7 @@ export default function AppShell({ currentPath, title, children }: AppShellProps
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-dvh flex flex-col relative z-10" style={{ background: '#0a0a0f', maxWidth: '480px', margin: '0 auto' }}>
+    <div className="min-h-dvh flex flex-col relative z-10" style={{ background: '#0a0a0f', width: '100%', maxWidth: '960px', margin: '0 auto' }}>
       <header
         className="sticky top-0 z-30 flex items-center justify-between px-5"
         style={{
@@ -40,9 +40,7 @@ export default function AppShell({ currentPath, title, children }: AppShellProps
           {(title ?? 'FINANZAS AI').toUpperCase()}
         </div>
 
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base" style={{ background: 'linear-gradient(135deg, #7c6af7, #ec4899)' }}>
-          $
-        </div>
+        <img src="/favicon.png" alt="" className="w-9 h-9 rounded-xl" />
       </header>
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} currentPath={currentPath} />

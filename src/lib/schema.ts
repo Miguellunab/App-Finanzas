@@ -9,6 +9,10 @@ export const wallets = pgTable('wallets', {
   color: text('color').notNull().default('#6366f1'),
   currency: text('currency').notNull().default('COP'),
   balance: real('balance').notNull().default(0),
+  type: text('type').notNull().default('debit'),
+  interestRate: real('interest_rate').notNull().default(0),
+  interestPeriod: text('interest_period').notNull().default('EA'),
+  includeInBalance: boolean('include_in_balance').notNull().default(true),
   isArchived: boolean('is_archived').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

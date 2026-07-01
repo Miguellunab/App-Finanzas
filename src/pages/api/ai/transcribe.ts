@@ -27,51 +27,24 @@ function getNormalizedMimeType(ext: string): string {
 }
 
 export const POST: APIRoute = async ({ request }) => {
-  const log: string[] = [];
-
   try {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File | null;
-
-    if (!audioFile) {
-      return new Response(JSON.stringify({ error: 'No se recibio archivo de audio', log: log.join('\n') }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
+    if (!audioFile) return new Response(JSON.stringify({ error: 'No se recibio archivo de audio' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
     const ext = getExtension(audioFile.type);
-    const cleanType = getNormalizedMimeType(ext);
     const arrayBuffer = await audioFile.arrayBuffer();
-    log.push(`received name=${audioFile.name} type=${audioFile.type || 'empty'} size=${audioFile.size}`);
-    log.push(`normalized ext=${ext} type=${cleanType} bytes=${arrayBuffer.byteLength}`);
-
-    const groq = getGroq();
-    const transcription = await groq.audio.transcriptions.create({
-      file: new File([arrayBuffer], `audio.${ext}`, { type: cleanType }),
+    const transcription = await getGroq().audio.transcriptions.create({
+      file: new File([arrayBuffer], `audio.${ext}`, { type: getNormalizedMimeType(ext) }),
       model: MODELS.whisper,
       language: 'es',
       response_format: 'json',
     });
 
     const text = transcription.text?.trim();
-    log.push(`transcription text length=${text?.length ?? 0}`);
-
-    if (!text) {
-      return new Response(JSON.stringify({ error: 'No se pudo transcribir el audio. Intenta de nuevo.', log: log.join('\n') }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    return new Response(JSON.stringify({ text, log: log.join('\n') }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    if (!text) return new Response(JSON.stringify({ error: 'No se pudo transcribir el audio. Intenta de nuevo.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ text }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e: any) {
-    log.push(e?.stack ?? e?.message ?? String(e));
-    return new Response(JSON.stringify({ error: e.message, log: log.join('\n') }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 };

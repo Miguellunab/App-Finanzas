@@ -1,50 +1,20 @@
-'use client';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-
 interface DayData {
   date: string;
   income: number;
   expense: number;
 }
 
-interface MiniChartProps {
-  data: DayData[];
-}
-
-function formatShortDate(dateStr: string) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-}
-
-function formatCOP(n: number) {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n}`;
-}
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{ background: '#18181f', border: '1px solid #2a2a38', borderRadius: '0.75rem', padding: '0.75rem 1rem', fontSize: '0.75rem' }}>
-      <p style={{ color: '#9896b0', marginBottom: '0.5rem' }}>{formatShortDate(label)}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} style={{ color: p.name === 'income' ? '#22c55e' : '#f43f5e', fontWeight: 600 }}>
-          {p.name === 'income' ? '+' : '-'} {formatCOP(p.value)}
-        </p>
-      ))}
-    </div>
-  );
-};
-
-export default function MiniChart({ data }: MiniChartProps) {
+export default function MiniChart({ data }: { data: DayData[] }) {
   if (!data?.length) {
     return (
       <div className="mx-4 mt-4 rounded-2xl p-5" style={{ background: '#111118', border: '1px solid #1e1e28' }}>
         <p className="text-xs font-semibold mb-4" style={{ color: '#9896b0' }}>Actividad reciente</p>
-        <div className="flex items-center justify-center h-24" style={{ color: '#5a5870', fontSize: '0.8rem' }}>Sin datos aun</div>
+        <div className="flex items-center justify-center h-20" style={{ color: '#5a5870', fontSize: '0.8rem' }}>Sin datos aun</div>
       </div>
     );
   }
+
+  const max = Math.max(...data.flatMap(d => [d.income, d.expense]), 1);
 
   return (
     <div className="mx-4 mt-4 rounded-2xl p-5" style={{ background: '#111118', border: '1px solid #1e1e28' }}>
@@ -55,25 +25,14 @@ export default function MiniChart({ data }: MiniChartProps) {
           <span style={{ color: '#f43f5e' }}>- Gastos</span>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={100}>
-        <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
-          <defs>
-            <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-            </linearGradient>
-            <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-            </linearGradient>
-          </defs>
-          <XAxis dataKey="date" tick={{ fill: '#5a5870', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => String(new Date(v + 'T00:00:00').getDate())} interval="preserveStartEnd" />
-          <YAxis hide />
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
-          <Area type="monotone" dataKey="income" stroke="#22c55e" strokeWidth={2} fill="url(#incomeGrad)" dot={false} isAnimationActive={false} />
-          <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} fill="url(#expenseGrad)" dot={false} isAnimationActive={false} />
-        </AreaChart>
-      </ResponsiveContainer>
+      <div className="flex items-end gap-1 h-24">
+        {data.slice(-30).map((d) => (
+          <div key={d.date} className="flex-1 flex flex-col justify-end gap-0.5 min-w-0" title={d.date}>
+            <div style={{ height: `${Math.max(2, (d.income / max) * 88)}px`, background: '#22c55e', borderRadius: '4px 4px 0 0', opacity: d.income ? 0.9 : 0.15 }} />
+            <div style={{ height: `${Math.max(2, (d.expense / max) * 88)}px`, background: '#f43f5e', borderRadius: '0 0 4px 4px', opacity: d.expense ? 0.9 : 0.15 }} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
