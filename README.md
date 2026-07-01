@@ -1,43 +1,37 @@
-# Astro Starter Kit: Minimal
+# FinanzasAI
+
+App Astro SSR con React islands para registrar gastos, revisar balances por billetera y automatizar gastos fijos.
+
+## Secciones
+
+- Inicio: balance, movimientos recientes y chat con IA para registrar transacciones.
+- Historial: movimientos filtrables por tipo.
+- Billeteras: cuentas, tarjetas, bolsillos y bovedas con logos y balance.
+- Categorias: categorias de ingresos/gastos.
+- Estadisticas: resumen visual de ingresos, gastos y distribucion.
+- Suscripciones: gastos fijos mensuales cobrados a una billetera por dia del mes.
+
+## Suscripciones
+
+Las suscripciones se crean desde el menu lateral. Cada una guarda nombre, dia de cobro del 1 al 31, valor y billetera. Al consultar `/api/subscriptions`, la app registra los cobros vencidos como gastos y actualiza la proxima fecha mensual.
+
+## Comandos
 
 ```sh
-npm create astro@latest -- --template minimal
+npm install
+npm run dev
+npm run build
+npm run preview
+npm run seed
+npm run db:studio
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+No hay suite de tests configurada. Usa `npm run build` como verificacion minima.
 
-## 🚀 Project Structure
+## Estructura
 
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
-
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- `src/pages/`: rutas Astro y endpoints API.
+- `src/components/`: pantallas y componentes React.
+- `src/lib/`: Drizzle, schema y utilidades compartidas.
+- `public/`: favicons y logos estaticos.
+- `scripts/seed.ts`: datos locales/demo.

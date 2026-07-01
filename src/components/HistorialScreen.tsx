@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import AppShell from './layout/AppShell';
-import TextInput from './input/TextInput';
 
 interface Transaction {
   id: number;
@@ -143,10 +142,6 @@ export default function HistorialScreen() {
             </div>
           ))
         )}
-
-        <div className="mx-4 mt-4 p-4 rounded-2xl" style={{ background: '#111118', border: '1px solid #1e1e28' }}>
-          <TextInput onSubmit={(text) => showToast(`Texto recibido: ${text}`)} placeholder="Probar texto..." />
-        </div>
       </div>
 
       {toast && (

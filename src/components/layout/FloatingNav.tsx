@@ -20,7 +20,7 @@ function ChartIcon() {
 
 export default function FloatingNav({ currentPath }: { currentPath: string }) {
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full px-4" style={{ maxWidth: '440px' }}>
+    <div className="fixed inset-x-0 mx-auto z-40 w-full px-4" style={{ maxWidth: '440px', bottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
       <div className="flex items-center justify-around rounded-3xl p-2" style={{ background: 'rgba(17,17,24,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
         {navItems.map((item) => {
           const active = currentPath === item.href || (item.href !== '/' && currentPath.startsWith(item.href));

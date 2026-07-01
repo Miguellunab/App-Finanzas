@@ -54,6 +54,20 @@ export const transactions = pgTable('transactions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// Suscripciones mensuales
+export const subscriptions = pgTable('subscriptions', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  amount: real('amount').notNull(),
+  currency: text('currency').notNull().default('COP'),
+  walletId: integer('wallet_id').notNull().references(() => wallets.id),
+  chargeDay: integer('charge_day').notNull(),
+  nextChargeDate: text('next_charge_date').notNull(),
+  lastChargedDate: text('last_charged_date'),
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 // Tipos exportados
 export type Wallet = typeof wallets.$inferSelect;
 export type NewWallet = typeof wallets.$inferInsert;
@@ -61,3 +75,5 @@ export type Category = typeof categories.$inferSelect;
 export type NewCategory = typeof categories.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type NewSubscription = typeof subscriptions.$inferInsert;

@@ -45,7 +45,7 @@ export default function AppShell({ currentPath, title, children }: AppShellProps
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} currentPath={currentPath} />
 
-      <main className="flex-1 overflow-y-auto pb-24">
+      <main className="flex-1 overflow-y-auto" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 6rem)' }}>
         {children}
       </main>
 

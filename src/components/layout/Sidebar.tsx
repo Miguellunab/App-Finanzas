@@ -3,6 +3,7 @@ const navItems = [
   { href: '/historial', label: 'Historial', icon: HistoryIcon },
   { href: '/billeteras', label: 'Billeteras', icon: WalletIcon },
   { href: '/categorias', label: 'Categorias', icon: TagIcon },
+  { href: '/suscripciones', label: 'Suscripciones', icon: RepeatIcon },
   { href: '/estadisticas', label: 'Estadisticas', icon: ChartIcon },
 ];
 
@@ -10,6 +11,7 @@ function HomeIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fil
 function HistoryIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3.05 11a9 9 0 1 0 .5-4.5"/><path d="M3 3v4h4"/><path d="M12 8v4l2 2"/></svg>; }
 function WalletIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 14h2"/></svg>; }
 function TagIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/></svg>; }
+function RepeatIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>; }
 function ChartIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 20v-6"/><path d="M12 20V4"/><path d="M18 20V10"/></svg>; }
 
 interface SidebarProps {
