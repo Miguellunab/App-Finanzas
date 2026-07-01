@@ -11,14 +11,14 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@astrojs/node": "^9.5.4",
-    "@astrojs/react": "^4.4.2",
-    "@astrojs/vercel": "^9.0.4",
+    "@astrojs/node": "^11.0.0",
+    "@astrojs/react": "^6.0.0",
+    "@astrojs/vercel": "^11.0.0",
     "@neondatabase/serverless": "^1.0.2",
     "@tailwindcss/vite": "^4.2.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "astro": "^5.17.1",
+    "astro": "^7.0.4",
     "drizzle-orm": "^0.45.1",
     "framer-motion": "^12.34.3",
     "groq-sdk": "^0.37.0",

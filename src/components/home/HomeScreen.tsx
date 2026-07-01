@@ -1,14 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import BalanceCard from './BalanceCard';
 import MiniChart from './MiniChart';
 import RecentTransactions from './RecentTransactions';
 import VoiceButton from '../input/VoiceButton';
 import TextInput from '../input/TextInput';
-import AIModal from '../input/AIModal';
 import AppShell from '../layout/AppShell';
-import SmartCardAnim from '../animations/SmartCardAnim';
-import useLiteMode from '../../hooks/useLiteMode';
 
 interface StatsData {
   totalBalance: number;
@@ -19,16 +15,12 @@ interface StatsData {
 }
 
 export default function HomeScreen() {
-  const liteMode = useLiteMode();
   const [stats, setStats] = useState<StatsData | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [wallets, setWallets] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [interpretation, setInterpretation] = useState<any>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [interpreting, setInterpreting] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [micText, setMicText] = useState('');
+  const [micLog, setMicLog] = useState('');
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -37,20 +29,14 @@ export default function HomeScreen() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [statsRes, txRes, walletsRes, catsRes] = await Promise.all([
-        fetch('/api/stats?period=month'),
+      const [statsRes, txRes] = await Promise.all([
+        fetch('/api/stats?period=all'),
         fetch('/api/transactions?limit=10'),
-        fetch('/api/wallets'),
-        fetch('/api/categories'),
       ]);
-      const [statsData, txData, walletsData, catsData] = await Promise.all([
-        statsRes.json(), txRes.json(), walletsRes.json(), catsRes.json(),
-      ]);
+      const [statsData, txData] = await Promise.all([statsRes.json(), txRes.json()]);
       setStats(statsData.data);
       setTransactions(txData.data ?? []);
-      setWallets(walletsData.data ?? []);
-      setCategories(catsData.data ?? []);
-    } catch (e) {
+    } catch {
       showToast('Error al cargar datos', 'error');
     } finally {
       setLoading(false);
@@ -59,51 +45,26 @@ export default function HomeScreen() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const handleTextOrVoice = async (text: string) => {
-    setInterpreting(true);
-    try {
-      const res = await fetch('/api/ai/interpret', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error);
-      setInterpretation(data.data);
-      setModalOpen(true);
-    } catch (e: any) {
-      showToast(e.message ?? 'Error al interpretar', 'error');
-    } finally {
-      setInterpreting(false);
-    }
+  const handleTranscribed = (text: string, log?: string) => {
+    setMicText(text);
+    setMicLog(log ?? '');
+    showToast('Audio transcrito');
   };
 
-  const handleConfirm = async (txData: any) => {
-    const res = await fetch('/api/transactions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(txData),
-    });
-    if (!res.ok) {
-      const d = await res.json();
-      throw new Error(d.error ?? 'Error al guardar');
-    }
-    setModalOpen(false);
-    setInterpretation(null);
-    showToast('✓ Transacción guardada');
-    await fetchAll();
+  const handleText = (text: string) => {
+    setMicText(text);
+    setMicLog('Entrada manual, sin analisis IA.');
   };
 
   const handleDelete = async (id: number) => {
     await fetch(`/api/transactions?id=${id}`, { method: 'DELETE' });
-    showToast('Transacción eliminada');
+    showToast('Transaccion eliminada');
     await fetchAll();
   };
 
   return (
     <AppShell currentPath="/" title="Inicio">
       <div className="pb-8">
-        <SmartCardAnim />
         {loading ? (
           <div className="px-4 mt-5 flex flex-col gap-4">
             <div className="skeleton h-48 rounded-2xl" />
@@ -112,110 +73,63 @@ export default function HomeScreen() {
           </div>
         ) : (
           <>
-            {stats && (
-              <BalanceCard
-                totalBalance={stats.totalBalance}
-                income={stats.income}
-                expenses={stats.expenses}
-                wallets={stats.wallets}
-              />
-            )}
+            {stats && <BalanceCard totalBalance={stats.totalBalance} income={stats.income} expenses={stats.expenses} wallets={stats.wallets} />}
             {stats && <MiniChart data={stats.byDay} />}
             <RecentTransactions transactions={transactions} onDelete={handleDelete} />
           </>
         )}
 
-        {/* Sección de input IA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: liteMode ? 0.15 : 0.4 }}
-          className="mx-4 mt-5 rounded-2xl p-5"
-          style={{ background: '#111118', border: '1px solid #1e1e28' }}
-        >
-          <p className="text-xs font-semibold mb-4 text-center" style={{ color: '#5a5870' }}>
-            Registrar movimiento
+        <div className="mx-4 mt-5 rounded-2xl p-5" style={{ background: '#111118', border: '1px solid #1e1e28' }}>
+          <p className="text-xs font-semibold mb-4 text-center" style={{ color: '#9896b0' }}>
+            Probar microfono
           </p>
 
-          {/* Voice button centrado */}
           <div className="flex justify-center mb-5">
-            <VoiceButton onTranscribed={handleTextOrVoice} disabled={interpreting} />
+            <VoiceButton onTranscribed={handleTranscribed} onLog={setMicLog} />
           </div>
 
-          {/* Divider */}
           <div className="flex items-center gap-3 mb-4">
             <div style={{ flex: 1, height: '1px', background: '#1e1e28' }} />
             <span className="text-xs" style={{ color: '#5a5870' }}>o escribe</span>
             <div style={{ flex: 1, height: '1px', background: '#1e1e28' }} />
           </div>
 
-          <TextInput onSubmit={handleTextOrVoice} disabled={interpreting} />
+          <TextInput onSubmit={handleText} />
 
-          {/* Estado interpretando */}
-          <AnimatePresence>
-            {interpreting && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mt-3 flex items-center gap-2 justify-center"
-              >
-                <motion.div
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: '#7c6af7' }}
-                  animate={{ scale: [1, 1.4, 1] }}
-                  transition={{ repeat: Infinity, duration: 0.6 }}
-                />
-                <motion.div
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: '#7c6af7' }}
-                  animate={{ scale: [1, 1.4, 1] }}
-                  transition={{ repeat: Infinity, duration: 0.6, delay: 0.15 }}
-                />
-                <motion.div
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: '#7c6af7' }}
-                  animate={{ scale: [1, 1.4, 1] }}
-                  transition={{ repeat: Infinity, duration: 0.6, delay: 0.3 }}
-                />
-                <span className="text-xs ml-1" style={{ color: '#7c6af7' }}>Analizando con IA...</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+          {(micText || micLog) && (
+            <div className="mt-4 rounded-xl p-3" style={{ background: '#18181f', border: '1px solid #2a2a38' }}>
+              {micText && (
+                <>
+                  <p className="text-xs font-semibold mb-1" style={{ color: '#22c55e' }}>Texto</p>
+                  <p className="text-sm mb-3 whitespace-pre-wrap" style={{ color: '#f1f0ff' }}>{micText}</p>
+                </>
+              )}
+              {micLog && (
+                <>
+                  <p className="text-xs font-semibold mb-1" style={{ color: '#7c6af7' }}>Log completo</p>
+                  <pre className="text-[11px] whitespace-pre-wrap overflow-auto max-h-64" style={{ color: '#9896b0' }}>{micLog}</pre>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Modal de confirmación IA */}
-      <AIModal
-        isOpen={modalOpen}
-        interpretation={interpretation}
-        wallets={wallets}
-        categories={categories}
-        onConfirm={handleConfirm}
-        onCancel={() => { setModalOpen(false); setInterpretation(null); }}
-      />
-
-      {/* Toast notifications */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-6 left-1/2 z-[100] px-5 py-3 rounded-2xl text-sm font-medium"
-            style={{
-              transform: 'translateX(-50%)',
-              background: toast.type === 'success' ? '#18181f' : '#2a0e14',
-              border: `1px solid ${toast.type === 'success' ? '#2a2a38' : '#f43f5e40'}`,
-              color: toast.type === 'success' ? '#f1f0ff' : '#f43f5e',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {toast.msg}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {toast && (
+        <div
+          className="fixed bottom-6 left-1/2 z-[100] px-5 py-3 rounded-2xl text-sm font-medium"
+          style={{
+            transform: 'translateX(-50%)',
+            background: toast.type === 'success' ? '#18181f' : '#2a0e14',
+            border: `1px solid ${toast.type === 'success' ? '#2a2a38' : '#f43f5e40'}`,
+            color: toast.type === 'success' ? '#f1f0ff' : '#f43f5e',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {toast.msg}
+        </div>
+      )}
     </AppShell>
   );
 }

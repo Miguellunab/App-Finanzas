@@ -1,251 +1,172 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import useLiteMode from '../../hooks/useLiteMode';
+import { useEffect, useRef, useState } from 'react';
 
 interface VoiceButtonProps {
-  onTranscribed: (text: string) => void;
+  onTranscribed: (text: string, log?: string) => void;
+  onLog?: (log: string) => void;
   disabled?: boolean;
 }
 
 type RecordState = 'idle' | 'recording' | 'processing' | 'error';
 
-export default function VoiceButton({ onTranscribed, disabled }: VoiceButtonProps) {
+function getAudioOptions() {
+  if (typeof MediaRecorder === 'undefined') return undefined;
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const candidates = isSafari
+    ? ['audio/mp4', 'audio/aac', 'audio/webm;codecs=opus', 'audio/webm']
+    : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac'];
+  const mimeType = candidates.find(type => MediaRecorder.isTypeSupported(type));
+  return mimeType ? { mimeType } : undefined;
+}
+
+function stringifyError(e: unknown) {
+  if (e instanceof Error) return `${e.name}: ${e.message}\n${e.stack ?? ''}`;
+  return JSON.stringify(e, null, 2);
+}
+
+export default function VoiceButton({ onTranscribed, onLog, disabled }: VoiceButtonProps) {
   const [state, setState] = useState<RecordState>('idle');
   const [errorMsg, setErrorMsg] = useState('');
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const pendingStopRef = useRef(false);
-  const isStartingRef = useRef(false);
-  const liteMode = useLiteMode();
+  const logRef = useRef<string[]>([]);
 
-  const isBrowserSupported = typeof window !== 'undefined'
-    && typeof navigator !== 'undefined'
-    && !!navigator.mediaDevices
-    && typeof navigator.mediaDevices.getUserMedia === 'function'
-    && typeof MediaRecorder !== 'undefined';
+  const log = (line: string) => {
+    const next = `[${new Date().toISOString()}] ${line}`;
+    logRef.current = [...logRef.current, next];
+    onLog?.(logRef.current.join('\n'));
+  };
 
-  const isTouchDevice = typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-
-  const isStandalone = typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && (window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
-
-  const stopStream = useCallback(() => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+  const stopStream = () => {
+    streamRef.current?.getTracks().forEach(track => track.stop());
     streamRef.current = null;
+  };
+
+  useEffect(() => () => {
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    stopStream();
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (mediaRecorderRef.current?.state === 'recording') {
-        mediaRecorderRef.current.stop();
-      }
-      stopStream();
-    };
-  }, [stopStream]);
-
-  const startRecording = useCallback(async () => {
-    if (isStartingRef.current || state === 'recording' || state === 'processing') return;
-
-    setErrorMsg('');
-    if (!isBrowserSupported) {
-      setErrorMsg('Este navegador no permite grabar audio aqui. Usa texto o abre la pagina en Safari normal actualizado.');
-      setState('error');
-      setTimeout(() => setState('idle'), 4200);
-      return;
-    }
-
-    isStartingRef.current = true;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      streamRef.current = stream;
-      let options: MediaRecorderOptions | undefined;
-      if (MediaRecorder.isTypeSupported?.('audio/webm;codecs=opus')) {
-        options = { mimeType: 'audio/webm;codecs=opus' };
-      } else if (MediaRecorder.isTypeSupported?.('audio/webm')) {
-        options = { mimeType: 'audio/webm' };
-      } else if (MediaRecorder.isTypeSupported?.('audio/mp4')) {
-        options = { mimeType: 'audio/mp4' };
-      }
-
-      let mr: MediaRecorder;
-      try {
-        mr = new MediaRecorder(stream, options);
-      } catch (err) {
-        console.warn('Error with MediaRecorder options, falling back to default', err);
-        mr = new MediaRecorder(stream);
-      }
-      mediaRecorderRef.current = mr;
-      chunksRef.current = [];
-      pendingStopRef.current = false;
-
-      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.onstop = async () => {
-        stopStream();
-        setState('processing');
-        const finalMime = mr.mimeType || 'audio/mp4';
-        const blob = new Blob(chunksRef.current, { type: finalMime });
-        if (!blob.size) {
-          setErrorMsg('No se pudo capturar audio. En iPhone prueba tocar una vez para iniciar y otra para detener.');
-          setState('error');
-          setTimeout(() => setState('idle'), 4200);
-          return;
-        }
-        await transcribe(blob, finalMime);
-      };
-
-      mr.onerror = () => {
-        stopStream();
-        setErrorMsg('La grabacion fallo en este dispositivo. Intenta de nuevo o usa el campo de texto.');
-        setState('error');
-        setTimeout(() => setState('idle'), 4200);
-      };
-
-      mr.start(250);
-      setState('recording');
-      if (pendingStopRef.current) {
-        pendingStopRef.current = false;
-        mr.stop();
-      }
-    } catch (e: any) {
-      const message = typeof e?.message === 'string' ? e.message : '';
-      setErrorMsg(
-        message.includes('Permission') || message.includes('denied')
-          ? isStandalone
-            ? 'iPhone bloqueo el microfono dentro de la app web. Abrela una vez en Safari, prueba grabar alli y luego vuelve al acceso directo.'
-            : 'El microfono fue bloqueado para esta pagina. Revisa el permiso del sitio en Safari y vuelve a intentar.'
-          : 'No se pudo acceder al microfono en este dispositivo.'
-      );
-      setState('error');
-      setTimeout(() => setState('idle'), 4200);
-      stopStream();
-    } finally {
-      isStartingRef.current = false;
-    }
-  }, [isBrowserSupported, onTranscribed, state, stopStream]);
-
-  const stopRecording = useCallback(() => {
-    if (isStartingRef.current) {
-      pendingStopRef.current = true;
-      return;
-    }
-
-    if (mediaRecorderRef.current && state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-  }, [state]);
+  const fail = (message: string, details?: string) => {
+    const full = details ? `${message}\n${details}` : message;
+    setErrorMsg(message);
+    setState('error');
+    log(full);
+  };
 
   const transcribe = async (blob: Blob, mimeType: string) => {
+    setState('processing');
+    log(`blob size=${blob.size} type=${mimeType || blob.type || 'unknown'}`);
+
     try {
-      // iOS Safari a veces devuelve mimeType vacío, por defecto es mp4
-      const actualMime = mimeType || 'audio/mp4';
-      const ext = actualMime.includes('webm') ? 'webm' : actualMime.includes('mp4') ? 'mp4' : 'ogg';
+      const type = mimeType || blob.type || 'audio/mp4';
+      const ext = type.includes('webm') ? 'webm' : type.includes('aac') ? 'aac' : 'mp4';
       const formData = new FormData();
-      formData.append('audio', new File([blob], `audio.${ext}`, { type: actualMime }));
+      formData.append('audio', new File([blob], `audio.${ext}`, { type }));
 
       const res = await fetch('/api/ai/transcribe', { method: 'POST', body: formData });
-      const data = await res.json();
+      const raw = await res.text();
+      log(`response status=${res.status}\n${raw}`);
+      const data = JSON.parse(raw);
 
       if (!res.ok || data.error) throw new Error(data.error ?? 'Error al transcribir');
 
       setState('idle');
-      onTranscribed(data.text);
-    } catch (e: any) {
-      setErrorMsg(e.message ?? 'Error al procesar audio');
-      setState('error');
-      setTimeout(() => setState('idle'), 4200);
+      setErrorMsg('');
+      onTranscribed(data.text, data.log ? `${logRef.current.join('\n')}\nserver:\n${data.log}` : logRef.current.join('\n'));
+    } catch (e) {
+      fail('Error al procesar audio', stringifyError(e));
     }
   };
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    e.preventDefault();
-    if (disabled) return;
-    if (isTouchDevice) {
-      if (state === 'idle') startRecording();
-      else if (state === 'recording') stopRecording();
+  const startRecording = async () => {
+    if (disabled || state === 'recording' || state === 'processing') return;
+    logRef.current = [];
+    setErrorMsg('');
+
+    if (!window.isSecureContext) {
+      fail('El microfono necesita HTTPS en iPhone.', `location=${location.href}`);
       return;
     }
-    if (state === 'idle') startRecording();
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      fail('Este navegador no soporta grabacion web.', `ua=${navigator.userAgent}`);
+      return;
+    }
+
+    try {
+      log(`ua=${navigator.userAgent}`);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const options = getAudioOptions();
+      log(`recorder options=${JSON.stringify(options ?? {})}`);
+      const recorder = new MediaRecorder(stream, options);
+      recorderRef.current = recorder;
+      chunksRef.current = [];
+
+      recorder.ondataavailable = event => {
+        if (event.data.size) chunksRef.current.push(event.data);
+        log(`data chunk=${event.data.size}`);
+      };
+      recorder.onerror = event => fail('La grabacion fallo.', JSON.stringify(event, null, 2));
+      recorder.onstop = () => {
+        stopStream();
+        const type = recorder.mimeType || options?.mimeType || 'audio/mp4';
+        const blob = new Blob(chunksRef.current, { type });
+        if (!blob.size) {
+          fail('No se capturo audio.', 'Toca una vez para iniciar y otra vez para detener.');
+          return;
+        }
+        void transcribe(blob, type);
+      };
+
+      recorder.start(1000);
+      setState('recording');
+      log(`recording mime=${recorder.mimeType || 'default'}`);
+    } catch (e) {
+      stopStream();
+      fail('No se pudo acceder al microfono.', stringifyError(e));
+    }
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    e.preventDefault();
-    if (isTouchDevice) return;
+  const stopRecording = () => {
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+  };
+
+  const toggle = () => {
+    if (state === 'idle' || state === 'error') void startRecording();
     if (state === 'recording') stopRecording();
   };
 
-  const stateConfig = {
-    idle: { bg: 'linear-gradient(135deg, #7c6af7, #ec4899)', shadow: '0 8px 24px rgba(124,106,247,0.4)', icon: MicIcon },
-    recording: { bg: 'linear-gradient(135deg, #f43f5e, #fb923c)', shadow: '0 8px 32px rgba(244,63,94,0.5)', icon: StopIcon },
-    processing: { bg: 'linear-gradient(135deg, #3b82f6, #06b6d4)', shadow: '0 8px 24px rgba(59,130,246,0.4)', icon: SpinIcon },
-    error: { bg: 'linear-gradient(135deg, #374151, #4b5563)', shadow: 'none', icon: MicIcon },
-  };
-
-  const cfg = stateConfig[state];
+  const label = state === 'recording'
+    ? 'Grabando... toca para enviar'
+    : state === 'processing'
+      ? 'Procesando audio...'
+      : state === 'error'
+        ? errorMsg
+        : 'Toca para grabar';
 
   return (
     <div className="flex flex-col items-center gap-2">
-      {/* Botón principal */}
-      <motion.button
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+      <button
+        type="button"
+        onClick={toggle}
         disabled={disabled || state === 'processing'}
-        className="relative w-20 h-20 rounded-full flex items-center justify-center select-none touch-none"
-        style={{ background: cfg.bg, boxShadow: cfg.shadow, border: 'none', cursor: 'pointer' }}
-        whileTap={{ scale: 0.92 }}
-        animate={state === 'recording' ? {
-          boxShadow: ['0 8px 32px rgba(244,63,94,0.5)', '0 8px 48px rgba(244,63,94,0.8)', '0 8px 32px rgba(244,63,94,0.5)'],
-        } : {}}
-        transition={state === 'recording' ? { repeat: Infinity, duration: liteMode ? 1.6 : 1 } : {}}
+        className="relative w-20 h-20 rounded-full flex items-center justify-center select-none"
+        style={{
+          background: state === 'recording' ? '#f43f5e' : state === 'processing' ? '#3b82f6' : 'linear-gradient(135deg, #7c6af7, #ec4899)',
+          border: 'none',
+          color: 'white',
+          cursor: disabled || state === 'processing' ? 'wait' : 'pointer',
+          touchAction: 'manipulation',
+        }}
+        aria-label={label}
       >
-        {/* Anillos de pulso cuando graba */}
-        <AnimatePresence>
-          {state === 'recording' && (
-            <>
-              {[1, 2].map(i => (
-                <motion.span
-                  key={i}
-                  className="absolute inset-0 rounded-full"
-                  style={{ border: '2px solid rgba(244,63,94,0.4)' }}
-                  initial={{ scale: 1, opacity: 0.6 }}
-                  animate={{ scale: 1.8 + i * 0.4, opacity: 0 }}
-                  transition={{ repeat: Infinity, duration: 1.5, delay: i * 0.4, ease: 'easeOut' }}
-                />
-              ))}
-            </>
-          )}
-        </AnimatePresence>
-
-        <cfg.icon />
-      </motion.button>
-
-      {/* Label de estado */}
-      <AnimatePresence mode="wait">
-        <motion.p
-          key={state}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          className="text-xs text-center"
-          style={{ color: state === 'error' ? '#f43f5e' : '#5a5870' }}
-        >
-          {state === 'idle' && (isTouchDevice ? 'Toca para grabar y toca de nuevo para enviar' : 'Manten presionado para hablar')}
-          {state === 'recording' && (isTouchDevice ? 'Grabando... toca de nuevo para enviar' : 'Grabando... suelta para enviar')}
-          {state === 'processing' && '⏳ Procesando audio...'}
-          {state === 'error' && (errorMsg || 'Error')}
-        </motion.p>
-      </AnimatePresence>
+        {state === 'recording' ? <StopIcon /> : <MicIcon />}
+      </button>
+      <p className="text-xs text-center max-w-72" style={{ color: state === 'error' ? '#f43f5e' : '#9896b0' }}>
+        {label}
+      </p>
     </div>
   );
 }
@@ -266,17 +187,5 @@ function StopIcon() {
     <svg width="28" height="28" viewBox="0 0 24 24" fill="white" stroke="none">
       <rect x="6" y="6" width="12" height="12" rx="2"/>
     </svg>
-  );
-}
-
-function SpinIcon() {
-  return (
-    <motion.svg
-      width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"
-      animate={{ rotate: 360 }}
-      transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-    </motion.svg>
   );
 }

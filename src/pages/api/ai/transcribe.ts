@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getGroq, MODELS } from '../../../lib/groq';
 
-// Extensiones válidas que acepta Whisper en Groq
 const VALID_EXTENSIONS: Record<string, string> = {
   'audio/webm': 'webm',
   'audio/mp4': 'mp4',
@@ -17,9 +16,7 @@ const VALID_EXTENSIONS: Record<string, string> = {
 };
 
 function getExtension(mimeType: string): string {
-  // Ignorar parámetros como ";codecs=opus"
-  const base = mimeType.split(';')[0].trim().toLowerCase();
-  return VALID_EXTENSIONS[base] ?? 'webm';
+  return VALID_EXTENSIONS[mimeType.split(';')[0].trim().toLowerCase()] ?? 'mp4';
 }
 
 function getNormalizedMimeType(ext: string): string {
@@ -30,43 +27,51 @@ function getNormalizedMimeType(ext: string): string {
 }
 
 export const POST: APIRoute = async ({ request }) => {
+  const log: string[] = [];
+
   try {
     const formData = await request.formData();
-    const audioFile = formData.get('audio') as File;
+    const audioFile = formData.get('audio') as File | null;
 
     if (!audioFile) {
-      return new Response(JSON.stringify({ error: 'No se recibió archivo de audio' }), {
-        status: 400, headers: { 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ error: 'No se recibio archivo de audio', log: log.join('\n') }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Reconstruir el File con nombre y tipo limpios para que el SDK no falle la validación
     const ext = getExtension(audioFile.type);
     const cleanType = getNormalizedMimeType(ext);
     const arrayBuffer = await audioFile.arrayBuffer();
-    const cleanFile = new File([arrayBuffer], `audio.${ext}`, { type: cleanType });
+    log.push(`received name=${audioFile.name} type=${audioFile.type || 'empty'} size=${audioFile.size}`);
+    log.push(`normalized ext=${ext} type=${cleanType} bytes=${arrayBuffer.byteLength}`);
 
     const groq = getGroq();
-
     const transcription = await groq.audio.transcriptions.create({
-      file: cleanFile,
+      file: new File([arrayBuffer], `audio.${ext}`, { type: cleanType }),
       model: MODELS.whisper,
       language: 'es',
       response_format: 'json',
     });
 
     const text = transcription.text?.trim();
+    log.push(`transcription text length=${text?.length ?? 0}`);
 
     if (!text) {
-      return new Response(JSON.stringify({ error: 'No se pudo transcribir el audio. Intenta de nuevo.' }), {
-        status: 400, headers: { 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ error: 'No se pudo transcribir el audio. Intenta de nuevo.', log: log.join('\n') }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ text }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ text, log: log.join('\n') }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500, headers: { 'Content-Type': 'application/json' },
+    log.push(e?.stack ?? e?.message ?? String(e));
+    return new Response(JSON.stringify({ error: e.message, log: log.join('\n') }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 };
