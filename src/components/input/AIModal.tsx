@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CATEGORY_COLORS } from '../../lib/utils';
+import { CATEGORY_COLORS, formatNumberInput, parseNumberInput } from '../../lib/utils';
 
 interface AIInterpretation {
   type: 'income' | 'expense' | 'transfer';
@@ -129,7 +129,7 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
             <div>
               <label htmlFor="ai-amount" className="text-xs font-medium mb-1.5 block" style={{ color: '#9896b0' }}>Monto</label>
               <div className="flex items-center gap-2">
-                <input id="ai-amount" type="number" value={data.amount} onChange={e => update({ amount: parseFloat(e.target.value) || 0 })} className="flex-1 rounded-xl px-4 py-3 text-lg font-bold outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: typeColors[data.type], fontFamily: 'inherit' }} />
+                <input id="ai-amount" inputMode="numeric" value={formatNumberInput(data.amount)} onChange={e => update({ amount: parseNumberInput(e.target.value) })} className="flex-1 rounded-xl px-4 py-3 text-lg font-bold outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: typeColors[data.type], fontFamily: 'inherit' }} />
                 <select aria-label="Moneda" value={data.currency} onChange={e => update({ currency: e.target.value })} className="rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff', fontFamily: 'inherit' }}>
                   <option>COP</option><option>USD</option><option>EUR</option>
                 </select>

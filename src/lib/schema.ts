@@ -17,6 +17,7 @@ export const wallets = pgTable('wallets', {
   dueDay: integer('due_day'),
   interestFromFirstInstallment: boolean('interest_from_first_installment').notNull().default(false),
   sourceWalletId: integer('source_wallet_id'),
+  vaultStartDate: text('vault_start_date'),
   vaultEndDate: text('vault_end_date'),
   includeInBalance: boolean('include_in_balance').notNull().default(true),
   isArchived: boolean('is_archived').notNull().default(false),

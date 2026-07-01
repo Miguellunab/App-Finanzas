@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import AppShell from './layout/AppShell';
-import { CATEGORY_COLORS } from '../lib/utils';
+import { CATEGORY_COLORS, WALLET_LOGOS, formatNumberInput, parseNumberInput, walletLogo } from '../lib/utils';
 
 type WalletType = 'debit' | 'credit' | 'pocket' | 'vault';
 
@@ -19,6 +19,7 @@ interface Wallet {
   dueDay?: number | null;
   interestFromFirstInstallment: boolean;
   sourceWalletId?: number | null;
+  vaultStartDate?: string | null;
   vaultEndDate?: string | null;
   includeInBalance: boolean;
 }
@@ -26,11 +27,12 @@ interface Wallet {
 const labels: Record<WalletType, string> = { debit: 'Debito', credit: 'Credito', pocket: 'Bolsillo', vault: 'Boveda' };
 const sections: Array<[WalletType, string]> = [['debit', 'Cuentas debito'], ['credit', 'Tarjetas credito'], ['pocket', 'Bolsillos'], ['vault', 'Bovedas']];
 const icons = ['💳', '$', '🏦', '💵', '🔒', '🎯', '📈', '🧾', '💼', '🏠'];
+const days = Array.from({ length: 31 }, (_, i) => String(i + 1));
 const emptyForm = {
   name: '', emoji: '💳', color: '#6366f1', currency: 'COP', balance: '',
   type: 'debit' as WalletType, interestRate: '', interestPeriod: 'EA' as 'EA' | 'MV',
   creditLimit: '', statementDay: '', dueDay: '', interestFromFirstInstallment: false,
-  sourceWalletId: '', vaultEndDate: '', includeInBalance: true,
+  sourceWalletId: '', vaultStartDate: '', vaultEndDate: '', includeInBalance: true,
 };
 
 function money(n: number, currency = 'COP') {
@@ -40,9 +42,21 @@ function money(n: number, currency = 'COP') {
 
 function projectedVault(w: Wallet) {
   if (!w.vaultEndDate || !w.interestRate) return w.balance;
-  const days = Math.max(0, Math.ceil((new Date(w.vaultEndDate).getTime() - Date.now()) / 86400000));
+  const start = w.vaultStartDate ? new Date(`${w.vaultStartDate}T00:00:00`).getTime() : Date.now();
+  const days = Math.max(0, Math.ceil((new Date(`${w.vaultEndDate}T00:00:00`).getTime() - start) / 86400000));
   const annual = w.interestPeriod === 'MV' ? Math.pow(1 + w.interestRate / 100, 12) - 1 : w.interestRate / 100;
   return w.balance * Math.pow(1 + annual, days / 365);
+}
+
+function rateLabel(w: Wallet) {
+  if (w.type !== 'debit') return `Tasa ${w.interestRate || 0}% ${w.interestPeriod}`;
+  const mv = w.interestPeriod === 'MV' ? w.interestRate : (Math.pow(1 + (w.interestRate || 0) / 100, 1 / 12) - 1) * 100;
+  return `Tasa ${mv.toFixed(2)}% MV`;
+}
+
+function WalletMark({ emoji, name }: { emoji: string; name?: string }) {
+  const logo = walletLogo(emoji, name);
+  return logo ? <img src={logo} alt="" className="h-7 w-7 object-contain" /> : <>{emoji}</>;
 }
 
 export default function BilleterasScreen() {
@@ -78,10 +92,11 @@ export default function BilleterasScreen() {
       body: JSON.stringify({
         id: editingId,
         ...form,
-        balance: parseFloat(form.balance || '0'),
+        balance: form.type === 'credit' && !editingId ? 0 : parseNumberInput(form.balance),
         interestRate: parseFloat(form.interestRate || '0'),
-        creditLimit: parseFloat(form.creditLimit || '0'),
-        includeInBalance: form.type === 'pocket' || form.type === 'vault' ? false : form.includeInBalance,
+        creditLimit: parseNumberInput(form.creditLimit),
+        sourceWalletId: form.type === 'pocket' ? form.sourceWalletId : '',
+        includeInBalance: form.type === 'debit' || form.type === 'credit' ? form.includeInBalance : false,
       }),
     });
     showToast(editingId ? 'Billetera actualizada' : 'Billetera creada');
@@ -91,11 +106,11 @@ export default function BilleterasScreen() {
 
   const edit = (w: Wallet) => {
     setForm({
-      name: w.name, emoji: w.emoji, color: w.color, currency: w.currency, balance: String(w.balance),
+      name: w.name, emoji: w.emoji, color: w.color, currency: w.currency, balance: formatNumberInput(w.balance),
       type: w.type ?? 'debit', interestRate: String(w.interestRate ?? 0), interestPeriod: w.interestPeriod ?? 'EA',
-      creditLimit: String(w.creditLimit ?? 0), statementDay: String(w.statementDay ?? ''), dueDay: String(w.dueDay ?? ''),
+      creditLimit: formatNumberInput(w.creditLimit ?? 0), statementDay: String(w.statementDay ?? ''), dueDay: String(w.dueDay ?? ''),
       interestFromFirstInstallment: w.interestFromFirstInstallment ?? false,
-      sourceWalletId: String(w.sourceWalletId ?? ''), vaultEndDate: w.vaultEndDate ?? '',
+      sourceWalletId: String(w.sourceWalletId ?? ''), vaultStartDate: w.vaultStartDate ?? '', vaultEndDate: w.vaultEndDate ?? '',
       includeInBalance: w.includeInBalance !== false,
     });
     setEditingId(w.id);
@@ -113,17 +128,9 @@ export default function BilleterasScreen() {
     fetchWallets();
   };
 
-  const total = wallets.reduce((sum, w) => sum + (w.includeInBalance ? w.balance : 0), 0);
-
   return (
     <AppShell currentPath="/billeteras" title="Billeteras">
       <div className="pb-8">
-        <div className="mx-4 mt-5 p-5 rounded-2xl" style={{ background: 'linear-gradient(135deg, #1a1530, #12112a)', border: '1px solid rgba(124,106,247,0.2)' }}>
-          <p className="text-xs" style={{ color: '#5a5870' }}>Total disponible</p>
-          <p className="text-3xl font-bold mt-1" style={{ color: '#f1f0ff' }}>{money(total)}</p>
-          <p className="text-xs mt-1" style={{ color: '#7c6af7' }}>{wallets.filter(w => w.includeInBalance).length} incluidas en balance</p>
-        </div>
-
         {loading ? (
           <div className="px-4 mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-40 rounded-2xl" />)}
@@ -139,7 +146,7 @@ export default function BilleterasScreen() {
                   <div key={w.id} className="rounded-2xl p-5 min-w-0" style={{ background: `linear-gradient(135deg, ${w.color}22, rgba(17,17,24,0.9))`, border: `1px solid ${w.color}55` }}>
                     <div className="flex justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: `${w.color}33`, border: `1px solid ${w.color}88` }}>{w.emoji}</div>
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl overflow-hidden" style={{ background: `${w.color}33`, border: `1px solid ${w.color}88` }}><WalletMark emoji={w.emoji} name={w.name} /></div>
                         <div className="min-w-0">
                           <h3 className="font-bold text-lg truncate" style={{ color: '#f1f0ff' }}>{w.name}</h3>
                           <p className="text-xs font-medium uppercase" style={{ color: w.color }}>{w.currency} - {labels[w.type ?? 'debit']}</p>
@@ -150,13 +157,13 @@ export default function BilleterasScreen() {
                         <button onClick={() => archive(w.id)} className="p-2 rounded-lg" style={{ background: 'rgba(244,63,94,0.12)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.25)' }} aria-label="Archivar">x</button>
                       </div>
                     </div>
-                    <p className="text-xs mt-6 mb-1" style={{ color: '#9896b0' }}>Saldo actual</p>
-                    <p className="text-3xl font-bold truncate" style={{ color: w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{money(w.balance, w.currency)}</p>
-                    {w.type === 'credit' && <p className="text-xs mt-2" style={{ color: '#9896b0' }}>Cupo {money(w.creditLimit || 0, w.currency)} - corte {w.statementDay || '?'} / pago {w.dueDay || '?'}</p>}
-                    {(w.type === 'credit' || w.type === 'pocket' || w.type === 'vault') && <p className="text-xs mt-2" style={{ color: '#9896b0' }}>Tasa {w.interestRate || 0}% {w.interestPeriod}</p>}
-                    {w.type === 'vault' && <p className="text-xs mt-2" style={{ color: '#7c6af7' }}>Final {w.vaultEndDate || 'sin fecha'} - estimado {money(projectedVault(w), w.currency)}</p>}
-                    {(w.type === 'pocket' || w.type === 'vault') && <p className="text-xs mt-2" style={{ color: '#9896b0' }}>Sale de {wallets.find(x => x.id === w.sourceWalletId)?.name ?? 'sin origen'}</p>}
-                    {w.type !== 'pocket' && w.type !== 'vault' && (
+                    <p className="text-xs mt-6 mb-1" style={{ color: '#9896b0' }}>{w.type === 'credit' ? 'Cupo disponible' : 'Saldo actual'}</p>
+                    <p className="text-3xl font-bold truncate" style={{ color: w.type === 'credit' || w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{money(w.type === 'credit' ? Math.max(0, w.creditLimit - w.balance) : w.balance, w.currency)}</p>
+                    {w.type === 'credit' && <p className="text-xs mt-2" style={{ color: '#9896b0' }}>Usado {money(w.balance || 0, w.currency)} de {money(w.creditLimit || 0, w.currency)} - corte {w.statementDay || '?'} / pago {w.dueDay || '?'}</p>}
+                    {w.interestRate > 0 && (w.type === 'debit' || w.type === 'credit' || w.type === 'pocket' || w.type === 'vault') && <p className="text-xs mt-2" style={{ color: '#9896b0' }}>{rateLabel(w)}</p>}
+                    {w.type === 'vault' && <p className="text-xs mt-2" style={{ color: '#7c6af7' }}>Inicio {w.vaultStartDate || 'hoy'} - final {w.vaultEndDate || 'sin fecha'} - estimado {money(projectedVault(w), w.currency)}</p>}
+                    {w.type === 'pocket' && <p className="text-xs mt-2" style={{ color: '#9896b0' }}>Sale de {wallets.find(x => x.id === w.sourceWalletId)?.name ?? 'sin origen'}</p>}
+                    {(w.type === 'debit' || w.type === 'credit') && (
                       <button onClick={() => toggleBalance(w)} className="mt-4 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: w.includeInBalance ? 'rgba(34,197,94,0.12)' : 'rgba(244,63,94,0.12)', color: w.includeInBalance ? '#22c55e' : '#f43f5e', border: '1px solid #2a2a38' }}>
                         {w.includeInBalance ? 'Incluida en balance' : 'Oculta del balance'}
                       </button>
@@ -184,7 +191,7 @@ export default function BilleterasScreen() {
                   <span className="text-xs font-medium block mb-2" style={{ color: '#9896b0' }}>Tipo</span>
                   <div className="grid grid-cols-4 gap-2">
                     {(['debit', 'credit', 'pocket', 'vault'] as WalletType[]).map(t => (
-                      <button type="button" key={t} onClick={() => setForm(f => ({ ...f, type: t, includeInBalance: t === 'pocket' || t === 'vault' ? false : f.includeInBalance }))} className="py-2 rounded-xl text-xs font-medium" style={{ background: form.type === t ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${form.type === t ? '#7c6af7' : '#2a2a38'}`, color: form.type === t ? '#f1f0ff' : '#9896b0' }}>{labels[t]}</button>
+                      <button type="button" key={t} onClick={() => setForm(f => ({ ...f, type: t, balance: t === 'credit' && f.type !== 'credit' ? '' : f.balance, includeInBalance: t === 'debit' || t === 'credit' ? f.includeInBalance : false }))} className="py-2 rounded-xl text-xs font-medium" style={{ background: form.type === t ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${form.type === t ? '#7c6af7' : '#2a2a38'}`, color: form.type === t ? '#f1f0ff' : '#9896b0' }}>{labels[t]}</button>
                     ))}
                   </div>
                 </div>
@@ -192,7 +199,7 @@ export default function BilleterasScreen() {
                 <div>
                   <span className="text-xs font-medium block mb-2" style={{ color: '#9896b0' }}>Icono</span>
                   <div className="flex flex-wrap gap-2">
-                    {icons.map(i => <button type="button" key={i} onClick={() => setForm(f => ({ ...f, emoji: i }))} className="w-10 h-10 rounded-xl text-xl flex items-center justify-center" style={{ background: form.emoji === i ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${form.emoji === i ? '#7c6af7' : '#2a2a38'}` }}>{i}</button>)}
+                    {[...icons, ...WALLET_LOGOS.map(l => l.src)].map(i => <button type="button" key={i} onClick={() => setForm(f => ({ ...f, emoji: i }))} className="w-10 h-10 rounded-xl text-xl flex items-center justify-center overflow-hidden" style={{ background: form.emoji === i ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${form.emoji === i ? '#7c6af7' : '#2a2a38'}` }}><WalletMark emoji={i} /></button>)}
                   </div>
                 </div>
 
@@ -204,12 +211,12 @@ export default function BilleterasScreen() {
                   <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Moneda
                     <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }}><option>COP</option><option>USD</option></select>
                   </label>
-                  <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Saldo
-                    <input type="number" value={form.balance} onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} />
-                  </label>
+                  {form.type !== 'credit' && <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Saldo
+                    <input inputMode="numeric" value={form.balance} onChange={e => setForm(f => ({ ...f, balance: formatNumberInput(e.target.value) }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} />
+                  </label>}
                 </div>
 
-                {(form.type === 'pocket' || form.type === 'vault') && (
+                {form.type === 'pocket' && (
                   <label className="text-xs font-medium" style={{ color: '#9896b0' }}>Sale de
                     <select value={form.sourceWalletId} onChange={e => setForm(f => ({ ...f, sourceWalletId: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }}>
                       <option value="">Selecciona origen</option>
@@ -221,9 +228,9 @@ export default function BilleterasScreen() {
                 {form.type === 'credit' && (
                   <>
                     <div className="flex gap-3">
-                      <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Cupo<input type="number" value={form.creditLimit} onChange={e => setForm(f => ({ ...f, creditLimit: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} /></label>
-                      <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Corte<input type="number" min="1" max="31" value={form.statementDay} onChange={e => setForm(f => ({ ...f, statementDay: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} /></label>
-                      <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Pago<input type="number" min="1" max="31" value={form.dueDay} onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} /></label>
+                      <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Cupo<input inputMode="numeric" value={form.creditLimit} onChange={e => setForm(f => ({ ...f, creditLimit: formatNumberInput(e.target.value) }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} /></label>
+                      <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Corte<select value={form.statementDay} onChange={e => setForm(f => ({ ...f, statementDay: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }}><option value="">Dia</option>{days.map(d => <option key={d} value={d}>{d}</option>)}</select></label>
+                      <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Pago<select value={form.dueDay} onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }}><option value="">Dia</option>{days.map(d => <option key={d} value={d}>{d}</option>)}</select></label>
                     </div>
                     <label className="flex items-center gap-2 text-xs" style={{ color: '#9896b0' }}><input type="checkbox" checked={form.interestFromFirstInstallment} onChange={e => setForm(f => ({ ...f, interestFromFirstInstallment: e.target.checked }))} /> Cobra intereses desde la primera cuota</label>
                   </>
@@ -236,9 +243,12 @@ export default function BilleterasScreen() {
                   </div>
                 )}
 
-                {form.type === 'vault' && <label className="text-xs font-medium" style={{ color: '#9896b0' }}>Fecha limite<input type="date" value={form.vaultEndDate} onChange={e => setForm(f => ({ ...f, vaultEndDate: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} /></label>}
+                {form.type === 'vault' && <div className="flex gap-3">
+                  <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Fecha inicial<input type="date" value={form.vaultStartDate} onChange={e => setForm(f => ({ ...f, vaultStartDate: e.target.value }))} className="date-dark mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff', colorScheme: 'dark' }} /></label>
+                  <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Fecha limite<input type="date" value={form.vaultEndDate} onChange={e => setForm(f => ({ ...f, vaultEndDate: e.target.value }))} className="date-dark mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff', colorScheme: 'dark' }} /></label>
+                </div>}
 
-                {form.type !== 'pocket' && form.type !== 'vault' && <label className="flex items-center gap-2 text-xs" style={{ color: '#9896b0' }}><input type="checkbox" checked={form.includeInBalance} onChange={e => setForm(f => ({ ...f, includeInBalance: e.target.checked }))} /> Incluir en balance total</label>}
+                {(form.type === 'debit' || form.type === 'credit') && <label className="flex items-center gap-2 text-xs" style={{ color: '#9896b0' }}><input type="checkbox" checked={form.includeInBalance} onChange={e => setForm(f => ({ ...f, includeInBalance: e.target.checked }))} /> Incluir en balance total</label>}
 
                 <div>
                   <span className="text-xs font-medium block mb-2" style={{ color: '#9896b0' }}>Color</span>

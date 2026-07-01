@@ -115,3 +115,7 @@ html, body {
   animation: shimmer 1.5s infinite;
   border-radius: 0.5rem;
 }
+
+.date-dark::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}

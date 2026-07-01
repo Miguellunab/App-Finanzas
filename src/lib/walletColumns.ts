@@ -13,6 +13,7 @@ export function ensureWalletColumns() {
     getDb().execute(sql`ALTER TABLE wallets ADD COLUMN IF NOT EXISTS due_day integer`),
     getDb().execute(sql`ALTER TABLE wallets ADD COLUMN IF NOT EXISTS interest_from_first_installment boolean NOT NULL DEFAULT false`),
     getDb().execute(sql`ALTER TABLE wallets ADD COLUMN IF NOT EXISTS source_wallet_id integer`),
+    getDb().execute(sql`ALTER TABLE wallets ADD COLUMN IF NOT EXISTS vault_start_date text`),
     getDb().execute(sql`ALTER TABLE wallets ADD COLUMN IF NOT EXISTS vault_end_date text`),
     getDb().execute(sql`ALTER TABLE wallets ADD COLUMN IF NOT EXISTS include_in_balance boolean NOT NULL DEFAULT true`),
     getDb().execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS installments integer NOT NULL DEFAULT 1`),

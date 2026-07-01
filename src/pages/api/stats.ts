@@ -96,13 +96,38 @@ export const GET: APIRoute = async ({ url }) => {
       dueDay: schema.wallets.dueDay,
       interestFromFirstInstallment: schema.wallets.interestFromFirstInstallment,
       sourceWalletId: schema.wallets.sourceWalletId,
+      vaultStartDate: schema.wallets.vaultStartDate,
       vaultEndDate: schema.wallets.vaultEndDate,
       includeInBalance: schema.wallets.includeInBalance,
     })
     .from(schema.wallets)
     .where(eq(schema.wallets.isArchived, false));
 
-    const totalBalance = walletBalances.reduce((acc, w) => acc + (w.includeInBalance ? w.balance : 0), 0);
+    const creditTxs = await db.select({
+      walletId: schema.transactions.walletId,
+      amount: schema.transactions.amount,
+      installments: schema.transactions.installments,
+      interestApplied: schema.transactions.interestApplied,
+      interestRate: schema.wallets.interestRate,
+      interestPeriod: schema.wallets.interestPeriod,
+    })
+    .from(schema.transactions)
+    .leftJoin(schema.wallets, eq(schema.transactions.walletId, schema.wallets.id))
+    .where(and(eq(schema.transactions.type, 'expense'), eq(schema.wallets.type, 'credit'), ...(dateFilter ? [dateFilter] : [])));
+
+    const debtByWallet = new Map<number, number>();
+    creditTxs.forEach(t => {
+      const installments = Math.max(1, t.installments || 1);
+      const rate = t.interestPeriod === 'MV' ? (t.interestRate ?? 0) / 100 : Math.pow(1 + (t.interestRate ?? 0) / 100, 1 / 12) - 1;
+      const amount = installments > 1 && t.interestApplied && rate > 0 ? t.amount * rate / (1 - Math.pow(1 + rate, -installments)) : t.amount / installments;
+      debtByWallet.set(t.walletId, (debtByWallet.get(t.walletId) ?? 0) + amount);
+    });
+    const wallets = walletBalances.map(w => ({ ...w, monthlyDebt: debtByWallet.get(w.id) ?? 0 }));
+    const creditDebt = (w: typeof wallets[number]) => w.monthlyDebt || w.balance;
+    const totalBalance = wallets.reduce((acc, w) => {
+      if (!w.includeInBalance) return acc;
+      return acc + (w.type === 'credit' ? -creditDebt(w) : w.balance);
+    }, 0);
 
     return new Response(JSON.stringify({
       data: {
@@ -112,7 +137,7 @@ export const GET: APIRoute = async ({ url }) => {
         totalBalance,
         byCategory,
         byDay,
-        wallets: walletBalances,
+        wallets,
       }
     }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e: any) {

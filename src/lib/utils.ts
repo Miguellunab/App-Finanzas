@@ -9,6 +9,28 @@ export function formatCurrency(amount: number, currency: string = 'COP'): string
   return formatter.format(amount);
 }
 
+export function formatNumberInput(value: string | number): string {
+  const raw = String(value);
+  return `${raw.trim().startsWith('-') ? '-' : ''}${raw.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+}
+
+export function parseNumberInput(value: string | number): number {
+  return Number(String(value).replace(/\./g, '')) || 0;
+}
+
+export const WALLET_LOGOS = [
+  { key: 'bancolombia', src: '/logos/bancolombia.png' },
+  { key: 'littio', src: '/logos/littio.png' },
+  { key: 'nequi', src: '/logos/nequi.png' },
+  { key: 'rappipay', src: '/logos/rappipay.png' },
+];
+
+export function walletLogo(emoji: string, name = ''): string | null {
+  if (emoji.startsWith('/logos/')) return emoji;
+  const text = `${name} ${emoji}`.toLowerCase();
+  return WALLET_LOGOS.find(logo => text.includes(logo.key))?.src ?? null;
+}
+
 // Formatear fecha en español
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00');

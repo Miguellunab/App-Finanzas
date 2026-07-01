@@ -93,26 +93,32 @@ export const POST: APIRoute = async ({ request }) => {
     }).returning();
     const wallet = await db.select({ type: schema.wallets.type }).from(schema.wallets).where(eq(schema.wallets.id, parseInt(walletId))).limit(1);
     const isCredit = wallet[0]?.type === 'credit';
+    const amountValue = parseFloat(amount);
 
     // Actualizar balance de wallet origen
-    if (type === 'expense' && isCredit) {
+    if ((type === 'expense' || type === 'transfer') && isCredit) {
       await db.update(schema.wallets)
-        .set({ balance: sql`balance + ${parseFloat(amount)}` })
+        .set({ balance: sql`balance + ${amountValue}` })
         .where(eq(schema.wallets.id, parseInt(walletId)));
     } else if (type === 'expense' || type === 'transfer') {
       await db.update(schema.wallets)
-        .set({ balance: sql`balance - ${parseFloat(amount)}` })
+        .set({ balance: sql`balance - ${amountValue}` })
+        .where(eq(schema.wallets.id, parseInt(walletId)));
+    } else if (type === 'income' && isCredit) {
+      await db.update(schema.wallets)
+        .set({ balance: sql`balance - ${amountValue}` })
         .where(eq(schema.wallets.id, parseInt(walletId)));
     } else if (type === 'income') {
       await db.update(schema.wallets)
-        .set({ balance: sql`balance + ${parseFloat(amount)}` })
+        .set({ balance: sql`balance + ${amountValue}` })
         .where(eq(schema.wallets.id, parseInt(walletId)));
     }
 
     // Si es transferencia, actualizar wallet destino
     if (type === 'transfer' && walletDestinationId) {
+      const destination = await db.select({ type: schema.wallets.type }).from(schema.wallets).where(eq(schema.wallets.id, parseInt(walletDestinationId))).limit(1);
       await db.update(schema.wallets)
-        .set({ balance: sql`balance + ${parseFloat(amount)}` })
+        .set({ balance: destination[0]?.type === 'credit' ? sql`balance - ${amountValue}` : sql`balance + ${amountValue}` })
         .where(eq(schema.wallets.id, parseInt(walletDestinationId)));
     }
 
@@ -140,15 +146,18 @@ export const DELETE: APIRoute = async ({ url }) => {
     const isCredit = wallet[0]?.type === 'credit';
 
     // Revertir balance
-    if (type === 'expense' && isCredit) {
+    if ((type === 'expense' || type === 'transfer') && isCredit) {
       await db.update(schema.wallets).set({ balance: sql`balance - ${amount}` }).where(eq(schema.wallets.id, walletId));
     } else if (type === 'expense' || type === 'transfer') {
+      await db.update(schema.wallets).set({ balance: sql`balance + ${amount}` }).where(eq(schema.wallets.id, walletId));
+    } else if (type === 'income' && isCredit) {
       await db.update(schema.wallets).set({ balance: sql`balance + ${amount}` }).where(eq(schema.wallets.id, walletId));
     } else if (type === 'income') {
       await db.update(schema.wallets).set({ balance: sql`balance - ${amount}` }).where(eq(schema.wallets.id, walletId));
     }
     if (type === 'transfer' && walletDestinationId) {
-      await db.update(schema.wallets).set({ balance: sql`balance - ${amount}` }).where(eq(schema.wallets.id, walletDestinationId));
+      const destination = await db.select({ type: schema.wallets.type }).from(schema.wallets).where(eq(schema.wallets.id, walletDestinationId)).limit(1);
+      await db.update(schema.wallets).set({ balance: destination[0]?.type === 'credit' ? sql`balance + ${amount}` : sql`balance - ${amount}` }).where(eq(schema.wallets.id, walletDestinationId));
     }
 
     await db.delete(schema.transactions).where(eq(schema.transactions.id, parseInt(id)));
