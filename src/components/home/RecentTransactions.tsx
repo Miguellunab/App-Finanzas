@@ -41,6 +41,21 @@ const typeConfig = {
   transfer: { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', symbol: '<>', label: 'Transfer.' },
 };
 
+function TransactionIcon({ tx }: { tx: Transaction }) {
+  const text = `${tx.description} ${tx.categoryName ?? ''}`.toLowerCase();
+  if (text.includes('deuda') || text.includes('credito') || text.includes('tarjeta')) return <CardIcon />;
+  if (text.includes('comida') || text.includes('mercado') || text.includes('empanada')) return <CartIcon />;
+  if (tx.type === 'income') return <IncomeIcon />;
+  if (tx.type === 'transfer') return <TransferIcon />;
+  return <ExpenseIcon />;
+}
+
+function CardIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg>; }
+function CartIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/><path d="M3 4h2l3 12h10l2-8H7"/></svg>; }
+function IncomeIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>; }
+function ExpenseIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>; }
+function TransferIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 7h11l-3-3"/><path d="M17 17H6l3 3"/></svg>; }
+
 export default function RecentTransactions({ transactions, onDelete }: RecentTransactionsProps) {
   if (!transactions.length) {
     return (
@@ -63,8 +78,8 @@ export default function RecentTransactions({ transactions, onDelete }: RecentTra
           const cfg = typeConfig[tx.type];
           return (
             <div key={tx.id} className="flex items-center gap-3 px-5 py-3.5 group" style={{ borderBottom: i < transactions.length - 1 ? '1px solid #1a1a22' : 'none' }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: cfg.bg }}>
-                {tx.categoryEmoji ?? cfg.symbol}
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: cfg.bg, color: cfg.color }}>
+                {tx.categoryEmoji ? <span className="text-lg">{tx.categoryEmoji}</span> : <TransactionIcon tx={tx} />}
               </div>
 
               <div className="flex-1 min-w-0">

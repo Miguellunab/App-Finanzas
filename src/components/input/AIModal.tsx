@@ -13,7 +13,15 @@ interface AIInterpretation {
   rawText: string;
 }
 
-interface Wallet { id: number; name: string; emoji: string; }
+interface Wallet {
+  id: number;
+  name: string;
+  emoji: string;
+  type?: string;
+  interestRate?: number;
+  interestPeriod?: string;
+  interestFromFirstInstallment?: boolean;
+}
 interface Category { id: number; name: string; emoji: string; }
 
 interface AIModalProps {
@@ -33,12 +41,24 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategoryEmoji, setNewCategoryEmoji] = useState('');
   const [loading, setLoading] = useState(false);
+  const [installments, setInstallments] = useState(1);
+  const [interestApplied, setInterestApplied] = useState(false);
   const data = editedData ?? interpretation;
 
   if (!isOpen || !data) return null;
 
   const needsNewCategory = data.category && !data.category.exists;
   const needsNewWallet = data.wallet && !data.wallet.exists;
+  const selectedWallet = wallets.find(w => w.id === data.wallet?.id);
+  const isCreditExpense = selectedWallet?.type === 'credit' && data.type === 'expense';
+  const monthlyRate = selectedWallet?.interestPeriod === 'MV'
+    ? (selectedWallet.interestRate ?? 0) / 100
+    : Math.pow(1 + (selectedWallet?.interestRate ?? 0) / 100, 1 / 12) - 1;
+  const installmentEstimate = installments > 1
+    ? interestApplied
+      ? data.amount * monthlyRate / (1 - Math.pow(1 + monthlyRate, -installments))
+      : data.amount / installments
+    : data.amount;
   const update = (patch: Partial<AIInterpretation>) => setEditedData(prev => ({ ...(prev ?? interpretation!), ...patch }));
 
   const handleConfirm = async () => {
@@ -82,6 +102,8 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
         description: data.description,
         aiGenerated: true,
         rawInput: data.rawText,
+        installments,
+        interestApplied,
       });
     } finally {
       setLoading(false);
@@ -166,6 +188,25 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
                 </select>
               )}
             </div>
+
+            {isCreditExpense && (
+              <div className="rounded-xl p-3" style={{ background: '#18181f', border: '1px solid #2a2a38' }}>
+                <p className="text-xs font-medium mb-2" style={{ color: '#9896b0' }}>Compra con tarjeta de credito</p>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label htmlFor="ai-installments" className="text-xs block mb-1" style={{ color: '#9896b0' }}>Cuotas</label>
+                    <input id="ai-installments" type="number" min="1" value={installments} onChange={e => setInstallments(Math.max(1, parseInt(e.target.value || '1')))} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ background: '#111118', border: '1px solid #2a2a38', color: '#f1f0ff' }} />
+                  </div>
+                  <label className="flex items-end gap-2 pb-2 text-xs" style={{ color: '#9896b0' }}>
+                    <input type="checkbox" checked={interestApplied || selectedWallet?.interestFromFirstInstallment === true} onChange={e => setInterestApplied(e.target.checked)} />
+                    Cobra interes
+                  </label>
+                </div>
+                <p className="text-xs mt-2" style={{ color: '#7c6af7' }}>
+                  Estimado: {new Intl.NumberFormat('es-CO', { style: 'currency', currency: data.currency, maximumFractionDigits: 0 }).format(installmentEstimate)} x {installments}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="px-5 pb-6 flex gap-3">

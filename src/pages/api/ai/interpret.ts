@@ -1,21 +1,14 @@
 import type { APIRoute } from 'astro';
 import { getDb, schema } from '../../../lib/db';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { getGroq, MODELS, TRANSACTION_SYSTEM_PROMPT } from '../../../lib/groq';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
     const db = getDb();
-    const body = await request.json();
-    const { text } = body;
+    const { text } = await request.json();
+    if (!text?.trim()) return new Response(JSON.stringify({ error: 'Texto vacio' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
-    if (!text?.trim()) {
-      return new Response(JSON.stringify({ error: 'Texto vacío' }), {
-        status: 400, headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Obtener wallets y categorías existentes para el contexto
     const wallets = await db.select({
       id: schema.wallets.id,
       name: schema.wallets.name,
@@ -29,60 +22,63 @@ export const POST: APIRoute = async ({ request }) => {
       type: schema.categories.type,
     }).from(schema.categories).where(eq(schema.categories.isArchived, false));
 
-    const walletsContext = wallets.map(w => `- ID:${w.id} "${w.name}" ${w.emoji}`).join('\n');
-    const categoriesContext = categories.map(c => `- ID:${c.id} "${c.name}" ${c.emoji} (${c.type})`).join('\n');
+    const recent = await db.select({
+      id: schema.transactions.id,
+      type: schema.transactions.type,
+      amount: schema.transactions.amount,
+      description: schema.transactions.description,
+      date: schema.transactions.date,
+      walletName: schema.wallets.name,
+      categoryName: schema.categories.name,
+      createdAt: schema.transactions.createdAt,
+    })
+      .from(schema.transactions)
+      .leftJoin(schema.wallets, eq(schema.transactions.walletId, schema.wallets.id))
+      .leftJoin(schema.categories, eq(schema.transactions.categoryId, schema.categories.id))
+      .orderBy(desc(schema.transactions.createdAt))
+      .limit(12);
 
-    const userPrompt = `El usuario dice: "${text}"
+    const userPrompt = `Usuario: "${text}"
 
-BILLETERAS EXISTENTES:
-${walletsContext || '(ninguna)'}
+BILLETERAS:
+${wallets.map(w => `- ID:${w.id} "${w.name}" ${w.emoji}`).join('\n') || '(ninguna)'}
 
-CATEGORÍAS EXISTENTES:
-${categoriesContext || '(ninguna)'}
+CATEGORIAS:
+${categories.map(c => `- ID:${c.id} "${c.name}" ${c.emoji} (${c.type})`).join('\n') || '(ninguna)'}
 
-Interpreta la transacción. Si hay match con una billetera/categoría existente, usa su ID. Si no existe, "exists": false.
-Responde SOLO con el JSON, sin texto adicional.`;
+ULTIMOS MOVIMIENTOS:
+${recent.map(t => `- ID:${t.id} ${t.date} ${t.type} $${t.amount} "${t.description}" billetera:${t.walletName ?? 'N/A'} categoria:${t.categoryName ?? 'N/A'}`).join('\n') || '(ninguno)'}`;
 
-    const groq = getGroq();
-    const completion = await groq.chat.completions.create({
+    const completion = await getGroq().chat.completions.create({
       model: MODELS.text,
       messages: [
         { role: 'system', content: TRANSACTION_SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.2,
-      max_tokens: 600,
+      max_tokens: 700,
       response_format: { type: 'json_object' },
     });
 
-    const rawContent = completion.choices[0]?.message?.content ?? '{}';
-    
-    let parsed: any;
-    try {
-      parsed = JSON.parse(rawContent);
-    } catch {
-      return new Response(JSON.stringify({ error: 'La IA no pudo interpretar el mensaje. Intenta ser más específico.' }), {
-        status: 422, headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Asegurar estructura mínima
+    const parsed = JSON.parse(completion.choices[0]?.message?.content ?? '{}');
     const result = {
+      action: parsed.action ?? 'create_transaction',
+      targetTransactionId: parsed.targetTransactionId ?? null,
       type: parsed.type ?? 'expense',
       amount: parsed.amount ?? 0,
       currency: parsed.currency ?? 'COP',
       description: parsed.description ?? text,
       category: {
         id: parsed.category?.id ?? null,
-        name: parsed.category?.name ?? 'Sin categoría',
-        emoji: parsed.category?.emoji ?? '📦',
+        name: parsed.category?.name ?? 'Sin categoria',
+        emoji: parsed.category?.emoji ?? '📌',
         exists: parsed.category?.exists ?? false,
       },
       wallet: {
         id: parsed.wallet?.id ?? null,
-        name: parsed.wallet?.name ?? 'Efectivo',
-        emoji: parsed.wallet?.emoji ?? '💵',
-        exists: parsed.wallet?.exists ?? false,
+        name: parsed.wallet?.name ?? wallets[0]?.name ?? 'Efectivo',
+        emoji: parsed.wallet?.emoji ?? wallets[0]?.emoji ?? '$',
+        exists: parsed.wallet?.exists ?? Boolean(wallets[0]),
       },
       walletDestination: parsed.walletDestination ?? null,
       confidence: parsed.confidence ?? 0.8,
@@ -92,8 +88,6 @@ Responde SOLO con el JSON, sin texto adicional.`;
 
     return new Response(JSON.stringify({ data: result }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500, headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 };

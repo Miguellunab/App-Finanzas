@@ -91,6 +91,12 @@ export const GET: APIRoute = async ({ url }) => {
       type: schema.wallets.type,
       interestRate: schema.wallets.interestRate,
       interestPeriod: schema.wallets.interestPeriod,
+      creditLimit: schema.wallets.creditLimit,
+      statementDay: schema.wallets.statementDay,
+      dueDay: schema.wallets.dueDay,
+      interestFromFirstInstallment: schema.wallets.interestFromFirstInstallment,
+      sourceWalletId: schema.wallets.sourceWalletId,
+      vaultEndDate: schema.wallets.vaultEndDate,
       includeInBalance: schema.wallets.includeInBalance,
     })
     .from(schema.wallets)

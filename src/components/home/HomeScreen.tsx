@@ -59,6 +59,11 @@ export default function HomeScreen() {
       const res = await fetch('/api/ai/interpret', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? 'Error al interpretar');
+      if (data.data?.action === 'delete_transaction') {
+        if (!data.data.targetTransactionId) throw new Error(data.data.clarification ?? 'No encontre cual movimiento eliminar');
+        await handleDelete(data.data.targetTransactionId);
+        return;
+      }
       setInterpretation(data.data);
       setModalOpen(true);
     } catch (e: any) {

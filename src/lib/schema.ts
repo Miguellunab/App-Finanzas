@@ -12,6 +12,12 @@ export const wallets = pgTable('wallets', {
   type: text('type').notNull().default('debit'),
   interestRate: real('interest_rate').notNull().default(0),
   interestPeriod: text('interest_period').notNull().default('EA'),
+  creditLimit: real('credit_limit').notNull().default(0),
+  statementDay: integer('statement_day'),
+  dueDay: integer('due_day'),
+  interestFromFirstInstallment: boolean('interest_from_first_installment').notNull().default(false),
+  sourceWalletId: integer('source_wallet_id'),
+  vaultEndDate: text('vault_end_date'),
   includeInBalance: boolean('include_in_balance').notNull().default(true),
   isArchived: boolean('is_archived').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -41,6 +47,8 @@ export const transactions = pgTable('transactions', {
   description: text('description').notNull().default(''),
   aiGenerated: boolean('ai_generated').notNull().default(false),
   rawInput: text('raw_input'), // El texto original que dio el usuario
+  installments: integer('installments').notNull().default(1),
+  interestApplied: boolean('interest_applied').notNull().default(false),
   date: text('date').notNull().default(sql`CURRENT_DATE`),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

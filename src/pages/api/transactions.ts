@@ -1,9 +1,11 @@
 import type { APIRoute } from 'astro';
 import { getDb, schema } from '../../lib/db';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
+import { ensureWalletColumns } from '../../lib/walletColumns';
 
 export const GET: APIRoute = async ({ url }) => {
   try {
+    await ensureWalletColumns();
     const db = getDb();
     const searchParams = url.searchParams;
     const limit = parseInt(searchParams.get('limit') ?? '50');
@@ -31,6 +33,8 @@ export const GET: APIRoute = async ({ url }) => {
         date: schema.transactions.date,
         aiGenerated: schema.transactions.aiGenerated,
         rawInput: schema.transactions.rawInput,
+        installments: schema.transactions.installments,
+        interestApplied: schema.transactions.interestApplied,
         createdAt: schema.transactions.createdAt,
         categoryId: schema.transactions.categoryId,
         walletId: schema.transactions.walletId,
@@ -64,9 +68,10 @@ export const GET: APIRoute = async ({ url }) => {
 
 export const POST: APIRoute = async ({ request }) => {
   try {
+    await ensureWalletColumns();
     const db = getDb();
     const body = await request.json();
-    const { type, amount, currency, categoryId, walletId, walletDestinationId, description, aiGenerated, rawInput, date } = body;
+    const { type, amount, currency, categoryId, walletId, walletDestinationId, description, aiGenerated, rawInput, installments, interestApplied, date } = body;
 
     if (!type || !amount || !walletId) {
       return new Response(JSON.stringify({ error: 'Faltan campos requeridos: type, amount, walletId' }), {
@@ -81,11 +86,20 @@ export const POST: APIRoute = async ({ request }) => {
       walletId: parseInt(walletId),
       walletDestinationId: walletDestinationId ? parseInt(walletDestinationId) : null,
       description: description ?? '', aiGenerated: aiGenerated ?? false,
-      rawInput: rawInput ?? null, date: date ?? new Date().toISOString().split('T')[0],
+      rawInput: rawInput ?? null,
+      installments: parseInt(installments ?? '1'),
+      interestApplied: interestApplied ?? false,
+      date: date ?? new Date().toISOString().split('T')[0],
     }).returning();
+    const wallet = await db.select({ type: schema.wallets.type }).from(schema.wallets).where(eq(schema.wallets.id, parseInt(walletId))).limit(1);
+    const isCredit = wallet[0]?.type === 'credit';
 
     // Actualizar balance de wallet origen
-    if (type === 'expense' || type === 'transfer') {
+    if (type === 'expense' && isCredit) {
+      await db.update(schema.wallets)
+        .set({ balance: sql`balance + ${parseFloat(amount)}` })
+        .where(eq(schema.wallets.id, parseInt(walletId)));
+    } else if (type === 'expense' || type === 'transfer') {
       await db.update(schema.wallets)
         .set({ balance: sql`balance - ${parseFloat(amount)}` })
         .where(eq(schema.wallets.id, parseInt(walletId)));
@@ -112,6 +126,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 export const DELETE: APIRoute = async ({ url }) => {
   try {
+    await ensureWalletColumns();
     const db = getDb();
     const id = url.searchParams.get('id');
     if (!id) return new Response(JSON.stringify({ error: 'id requerido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -121,9 +136,13 @@ export const DELETE: APIRoute = async ({ url }) => {
     if (!tx.length) return new Response(JSON.stringify({ error: 'Transacción no encontrada' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
 
     const { type, amount, walletId, walletDestinationId } = tx[0];
+    const wallet = await db.select({ type: schema.wallets.type }).from(schema.wallets).where(eq(schema.wallets.id, walletId)).limit(1);
+    const isCredit = wallet[0]?.type === 'credit';
 
     // Revertir balance
-    if (type === 'expense' || type === 'transfer') {
+    if (type === 'expense' && isCredit) {
+      await db.update(schema.wallets).set({ balance: sql`balance - ${amount}` }).where(eq(schema.wallets.id, walletId));
+    } else if (type === 'expense' || type === 'transfer') {
       await db.update(schema.wallets).set({ balance: sql`balance + ${amount}` }).where(eq(schema.wallets.id, walletId));
     } else if (type === 'income') {
       await db.update(schema.wallets).set({ balance: sql`balance - ${amount}` }).where(eq(schema.wallets.id, walletId));

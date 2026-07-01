@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import AppShell from './layout/AppShell';
 import { CATEGORY_COLORS } from '../lib/utils';
+
+type WalletType = 'debit' | 'credit' | 'pocket' | 'vault';
 
 interface Wallet {
   id: number;
@@ -9,32 +11,39 @@ interface Wallet {
   color: string;
   currency: string;
   balance: number;
-  type: 'debit' | 'credit' | 'pocket';
+  type: WalletType;
   interestRate: number;
   interestPeriod: 'EA' | 'MV';
+  creditLimit: number;
+  statementDay?: number | null;
+  dueDay?: number | null;
+  interestFromFirstInstallment: boolean;
+  sourceWalletId?: number | null;
+  vaultEndDate?: string | null;
   includeInBalance: boolean;
 }
 
-const CURRENCIES = ['COP', 'USD'];
-const EMOJIS = ['💳', '$', '🏦', '💵', '🟡', '🔵'];
-const typeLabels = { debit: 'Debito', credit: 'Credito', pocket: 'Bolsillo' };
+const labels: Record<WalletType, string> = { debit: 'Debito', credit: 'Credito', pocket: 'Bolsillo', vault: 'Boveda' };
+const sections: Array<[WalletType, string]> = [['debit', 'Cuentas debito'], ['credit', 'Tarjetas credito'], ['pocket', 'Bolsillos'], ['vault', 'Bovedas']];
+const icons = ['💳', '$', '🏦', '💵', '🔒', '🎯', '📈', '🧾', '💼', '🏠'];
+const emptyForm = {
+  name: '', emoji: '💳', color: '#6366f1', currency: 'COP', balance: '',
+  type: 'debit' as WalletType, interestRate: '', interestPeriod: 'EA' as 'EA' | 'MV',
+  creditLimit: '', statementDay: '', dueDay: '', interestFromFirstInstallment: false,
+  sourceWalletId: '', vaultEndDate: '', includeInBalance: true,
+};
 
-function formatMoney(n: number, currency = 'COP') {
+function money(n: number, currency = 'COP') {
   try { return new Intl.NumberFormat('es-CO', { style: 'currency', currency, minimumFractionDigits: 0 }).format(n); }
   catch { return `$${n}`; }
 }
 
-const emptyForm = {
-  name: '',
-  emoji: '💳',
-  color: '#6366f1',
-  currency: 'COP',
-  balance: '',
-  type: 'debit' as Wallet['type'],
-  interestRate: '',
-  interestPeriod: 'EA' as Wallet['interestPeriod'],
-  includeInBalance: true,
-};
+function projectedVault(w: Wallet) {
+  if (!w.vaultEndDate || !w.interestRate) return w.balance;
+  const days = Math.max(0, Math.ceil((new Date(w.vaultEndDate).getTime() - Date.now()) / 86400000));
+  const annual = w.interestPeriod === 'MV' ? Math.pow(1 + w.interestRate / 100, 12) - 1 : w.interestRate / 100;
+  return w.balance * Math.pow(1 + annual, days / 365);
+}
 
 export default function BilleterasScreen() {
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -45,7 +54,6 @@ export default function BilleterasScreen() {
   const [form, setForm] = useState(emptyForm);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
-
   const fetchWallets = async () => {
     const res = await fetch('/api/wallets');
     const data = await res.json();
@@ -64,15 +72,16 @@ export default function BilleterasScreen() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) return;
-    const method = editingId ? 'PUT' : 'POST';
     await fetch('/api/wallets', {
-      method,
+      method: editingId ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: editingId,
         ...form,
         balance: parseFloat(form.balance || '0'),
         interestRate: parseFloat(form.interestRate || '0'),
+        creditLimit: parseFloat(form.creditLimit || '0'),
+        includeInBalance: form.type === 'pocket' || form.type === 'vault' ? false : form.includeInBalance,
       }),
     });
     showToast(editingId ? 'Billetera actualizada' : 'Billetera creada');
@@ -80,23 +89,20 @@ export default function BilleterasScreen() {
     fetchWallets();
   };
 
-  const handleEdit = (w: Wallet) => {
+  const edit = (w: Wallet) => {
     setForm({
-      name: w.name,
-      emoji: w.emoji,
-      color: w.color,
-      currency: w.currency,
-      balance: String(w.balance),
-      type: w.type ?? 'debit',
-      interestRate: String(w.interestRate ?? 0),
-      interestPeriod: w.interestPeriod ?? 'EA',
+      name: w.name, emoji: w.emoji, color: w.color, currency: w.currency, balance: String(w.balance),
+      type: w.type ?? 'debit', interestRate: String(w.interestRate ?? 0), interestPeriod: w.interestPeriod ?? 'EA',
+      creditLimit: String(w.creditLimit ?? 0), statementDay: String(w.statementDay ?? ''), dueDay: String(w.dueDay ?? ''),
+      interestFromFirstInstallment: w.interestFromFirstInstallment ?? false,
+      sourceWalletId: String(w.sourceWalletId ?? ''), vaultEndDate: w.vaultEndDate ?? '',
       includeInBalance: w.includeInBalance !== false,
     });
     setEditingId(w.id);
     setShowForm(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const archive = async (id: number) => {
     await fetch(`/api/wallets?id=${id}`, { method: 'DELETE' });
     showToast('Billetera archivada');
     fetchWallets();
@@ -107,19 +113,14 @@ export default function BilleterasScreen() {
     fetchWallets();
   };
 
-  const totalBalance = wallets.reduce((acc, w) => acc + (w.includeInBalance ? w.balance : 0), 0);
-  const sections = [
-    ['debit', 'Cuentas debito'],
-    ['credit', 'Creditos'],
-    ['pocket', 'Bolsillos'],
-  ] as const;
+  const total = wallets.reduce((sum, w) => sum + (w.includeInBalance ? w.balance : 0), 0);
 
   return (
     <AppShell currentPath="/billeteras" title="Billeteras">
       <div className="pb-8">
         <div className="mx-4 mt-5 p-5 rounded-2xl" style={{ background: 'linear-gradient(135deg, #1a1530, #12112a)', border: '1px solid rgba(124,106,247,0.2)' }}>
           <p className="text-xs" style={{ color: '#5a5870' }}>Total disponible</p>
-          <p className="text-3xl font-bold mt-1" style={{ color: '#f1f0ff' }}>{formatMoney(totalBalance)}</p>
+          <p className="text-3xl font-bold mt-1" style={{ color: '#f1f0ff' }}>{money(total)}</p>
           <p className="text-xs mt-1" style={{ color: '#7c6af7' }}>{wallets.filter(w => w.includeInBalance).length} incluidas en balance</p>
         </div>
 
@@ -127,49 +128,48 @@ export default function BilleterasScreen() {
           <div className="px-4 mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-40 rounded-2xl" />)}
           </div>
-        ) : (
-          sections.map(([type, title]) => {
-            const items = wallets.filter(w => (w.type ?? 'debit') === type);
-            if (!items.length) return null;
-            return (
-              <section key={type} className="px-4 mt-5">
-                <h2 className="text-xs font-semibold mb-3 uppercase tracking-wider" style={{ color: '#9896b0' }}>{title}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {items.map(w => (
-                    <div key={w.id} className="rounded-2xl p-5 min-w-0" style={{ background: `linear-gradient(135deg, ${w.color}22, rgba(17,17,24,0.9))`, border: `1px solid ${w.color}55` }}>
-                      <div className="flex justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: `${w.color}33`, border: `1px solid ${w.color}88` }}>{w.emoji}</div>
-                          <div className="min-w-0">
-                            <h3 className="font-bold text-lg truncate" style={{ color: '#f1f0ff' }}>{w.name}</h3>
-                            <p className="text-xs font-medium uppercase" style={{ color: w.color }}>{w.currency} - {typeLabels[w.type ?? 'debit']}</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => handleEdit(w)} className="p-2 rounded-lg" style={{ background: 'rgba(124,106,247,0.12)', color: '#7c6af7', border: '1px solid rgba(124,106,247,0.25)' }} aria-label="Editar">✎</button>
-                          <button onClick={() => handleDelete(w.id)} className="p-2 rounded-lg" style={{ background: 'rgba(244,63,94,0.12)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.25)' }} aria-label="Archivar">x</button>
+        ) : sections.map(([type, title]) => {
+          const items = wallets.filter(w => (w.type ?? 'debit') === type);
+          if (!items.length) return null;
+          return (
+            <section key={type} className="px-4 mt-5">
+              <h2 className="text-xs font-semibold mb-3 uppercase tracking-wider" style={{ color: '#9896b0' }}>{title}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {items.map(w => (
+                  <div key={w.id} className="rounded-2xl p-5 min-w-0" style={{ background: `linear-gradient(135deg, ${w.color}22, rgba(17,17,24,0.9))`, border: `1px solid ${w.color}55` }}>
+                    <div className="flex justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: `${w.color}33`, border: `1px solid ${w.color}88` }}>{w.emoji}</div>
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-lg truncate" style={{ color: '#f1f0ff' }}>{w.name}</h3>
+                          <p className="text-xs font-medium uppercase" style={{ color: w.color }}>{w.currency} - {labels[w.type ?? 'debit']}</p>
                         </div>
                       </div>
-                      <p className="text-xs mt-6 mb-1" style={{ color: '#9896b0' }}>Saldo actual</p>
-                      <p className="text-3xl font-bold truncate" style={{ color: w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{formatMoney(w.balance, w.currency)}</p>
-                      {(w.type === 'credit' || w.type === 'pocket') && (
-                        <p className="text-xs mt-2" style={{ color: '#9896b0' }}>Rendimiento/interes: {w.interestRate || 0}% {w.interestPeriod}</p>
-                      )}
+                      <div className="flex gap-2">
+                        <button onClick={() => edit(w)} className="p-2 rounded-lg" style={{ background: 'rgba(124,106,247,0.12)', color: '#7c6af7', border: '1px solid rgba(124,106,247,0.25)' }} aria-label="Editar">Edit</button>
+                        <button onClick={() => archive(w.id)} className="p-2 rounded-lg" style={{ background: 'rgba(244,63,94,0.12)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.25)' }} aria-label="Archivar">x</button>
+                      </div>
+                    </div>
+                    <p className="text-xs mt-6 mb-1" style={{ color: '#9896b0' }}>Saldo actual</p>
+                    <p className="text-3xl font-bold truncate" style={{ color: w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{money(w.balance, w.currency)}</p>
+                    {w.type === 'credit' && <p className="text-xs mt-2" style={{ color: '#9896b0' }}>Cupo {money(w.creditLimit || 0, w.currency)} - corte {w.statementDay || '?'} / pago {w.dueDay || '?'}</p>}
+                    {(w.type === 'credit' || w.type === 'pocket' || w.type === 'vault') && <p className="text-xs mt-2" style={{ color: '#9896b0' }}>Tasa {w.interestRate || 0}% {w.interestPeriod}</p>}
+                    {w.type === 'vault' && <p className="text-xs mt-2" style={{ color: '#7c6af7' }}>Final {w.vaultEndDate || 'sin fecha'} - estimado {money(projectedVault(w), w.currency)}</p>}
+                    {(w.type === 'pocket' || w.type === 'vault') && <p className="text-xs mt-2" style={{ color: '#9896b0' }}>Sale de {wallets.find(x => x.id === w.sourceWalletId)?.name ?? 'sin origen'}</p>}
+                    {w.type !== 'pocket' && w.type !== 'vault' && (
                       <button onClick={() => toggleBalance(w)} className="mt-4 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: w.includeInBalance ? 'rgba(34,197,94,0.12)' : 'rgba(244,63,94,0.12)', color: w.includeInBalance ? '#22c55e' : '#f43f5e', border: '1px solid #2a2a38' }}>
                         {w.includeInBalance ? 'Incluida en balance' : 'Oculta del balance'}
                       </button>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            );
-          })
-        )}
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })}
 
         <div className="px-4 mt-4">
-          <button onClick={() => { resetForm(); setShowForm(true); }} className="w-full py-4 rounded-2xl text-sm font-semibold" style={{ background: 'linear-gradient(135deg, #7c6af7, #ec4899)', border: 'none', color: 'white', cursor: 'pointer' }}>
-            Nueva Billetera
-          </button>
+          <button onClick={() => { resetForm(); setShowForm(true); }} className="w-full py-4 rounded-2xl text-sm font-semibold" style={{ background: 'linear-gradient(135deg, #7c6af7, #ec4899)', border: 'none', color: 'white', cursor: 'pointer' }}>Nueva Billetera</button>
         </div>
       </div>
 
@@ -178,17 +178,13 @@ export default function BilleterasScreen() {
           <button className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.7)', border: 0 }} onClick={resetForm} aria-label="Cerrar" />
           <div className="fixed inset-0 z-50 flex items-end justify-center pb-[3%] px-4 pointer-events-none">
             <div className="w-full rounded-3xl overflow-y-auto pointer-events-auto" style={{ maxWidth: '440px', maxHeight: '85dvh', background: '#111118', border: '1px solid #2a2a38' }}>
-              <div className="p-5" style={{ borderBottom: '1px solid #1e1e28' }}>
-                <h2 className="text-base font-bold" style={{ color: '#f1f0ff' }}>{editingId ? 'Editar billetera' : 'Nueva billetera'}</h2>
-              </div>
+              <div className="p-5" style={{ borderBottom: '1px solid #1e1e28' }}><h2 className="text-base font-bold" style={{ color: '#f1f0ff' }}>{editingId ? 'Editar billetera' : 'Nueva billetera'}</h2></div>
               <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
                 <div>
                   <span className="text-xs font-medium block mb-2" style={{ color: '#9896b0' }}>Tipo</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['debit', 'credit', 'pocket'] as const).map(t => (
-                      <button type="button" key={t} onClick={() => setForm(f => ({ ...f, type: t, currency: t === 'pocket' ? f.currency : f.currency }))} className="py-2 rounded-xl text-xs font-medium" style={{ background: form.type === t ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${form.type === t ? '#7c6af7' : '#2a2a38'}`, color: form.type === t ? '#f1f0ff' : '#9896b0' }}>
-                        {typeLabels[t]}
-                      </button>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['debit', 'credit', 'pocket', 'vault'] as WalletType[]).map(t => (
+                      <button type="button" key={t} onClick={() => setForm(f => ({ ...f, type: t, includeInBalance: t === 'pocket' || t === 'vault' ? false : f.includeInBalance }))} className="py-2 rounded-xl text-xs font-medium" style={{ background: form.type === t ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${form.type === t ? '#7c6af7' : '#2a2a38'}`, color: form.type === t ? '#f1f0ff' : '#9896b0' }}>{labels[t]}</button>
                     ))}
                   </div>
                 </div>
@@ -196,60 +192,62 @@ export default function BilleterasScreen() {
                 <div>
                   <span className="text-xs font-medium block mb-2" style={{ color: '#9896b0' }}>Icono</span>
                   <div className="flex flex-wrap gap-2">
-                    {EMOJIS.map(e => (
-                      <button type="button" key={e} onClick={() => setForm(f => ({ ...f, emoji: e }))} className="w-10 h-10 rounded-xl text-xl flex items-center justify-center" style={{ background: form.emoji === e ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${form.emoji === e ? '#7c6af7' : '#2a2a38'}` }}>{e}</button>
-                    ))}
+                    {icons.map(i => <button type="button" key={i} onClick={() => setForm(f => ({ ...f, emoji: i }))} className="w-10 h-10 rounded-xl text-xl flex items-center justify-center" style={{ background: form.emoji === i ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${form.emoji === i ? '#7c6af7' : '#2a2a38'}` }}>{i}</button>)}
                   </div>
                 </div>
 
-                <div>
-                  <label htmlFor="wallet-name" className="text-xs font-medium block mb-1.5" style={{ color: '#9896b0' }}>Nombre</label>
-                  <input id="wallet-name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Bancolombia, Nequi..." required className="w-full rounded-xl px-4 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff', fontFamily: 'inherit' }} />
-                </div>
+                <label className="text-xs font-medium" style={{ color: '#9896b0' }}>Nombre
+                  <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required className="mt-1.5 w-full rounded-xl px-4 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} />
+                </label>
 
                 <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label htmlFor="wallet-currency" className="text-xs font-medium block mb-1.5" style={{ color: '#9896b0' }}>Moneda</label>
-                    <select id="wallet-currency" value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} className="w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff', fontFamily: 'inherit' }}>
-                      {CURRENCIES.map(c => <option key={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex-1">
-                    <label htmlFor="wallet-balance" className="text-xs font-medium block mb-1.5" style={{ color: '#9896b0' }}>Saldo inicial</label>
-                    <input id="wallet-balance" type="number" value={form.balance} onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} placeholder="0" className="w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff', fontFamily: 'inherit' }} />
-                  </div>
+                  <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Moneda
+                    <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }}><option>COP</option><option>USD</option></select>
+                  </label>
+                  <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Saldo
+                    <input type="number" value={form.balance} onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} />
+                  </label>
                 </div>
 
-                {(form.type === 'credit' || form.type === 'pocket') && (
+                {(form.type === 'pocket' || form.type === 'vault') && (
+                  <label className="text-xs font-medium" style={{ color: '#9896b0' }}>Sale de
+                    <select value={form.sourceWalletId} onChange={e => setForm(f => ({ ...f, sourceWalletId: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }}>
+                      <option value="">Selecciona origen</option>
+                      {wallets.filter(w => w.type !== 'pocket' && w.type !== 'vault').map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    </select>
+                  </label>
+                )}
+
+                {form.type === 'credit' && (
+                  <>
+                    <div className="flex gap-3">
+                      <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Cupo<input type="number" value={form.creditLimit} onChange={e => setForm(f => ({ ...f, creditLimit: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} /></label>
+                      <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Corte<input type="number" min="1" max="31" value={form.statementDay} onChange={e => setForm(f => ({ ...f, statementDay: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} /></label>
+                      <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>Pago<input type="number" min="1" max="31" value={form.dueDay} onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} /></label>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs" style={{ color: '#9896b0' }}><input type="checkbox" checked={form.interestFromFirstInstallment} onChange={e => setForm(f => ({ ...f, interestFromFirstInstallment: e.target.checked }))} /> Cobra intereses desde la primera cuota</label>
+                  </>
+                )}
+
+                {(form.type === 'credit' || form.type === 'pocket' || form.type === 'vault') && (
                   <div className="flex gap-3">
-                    <div className="flex-1">
-                      <label htmlFor="wallet-rate" className="text-xs font-medium block mb-1.5" style={{ color: '#9896b0' }}>{form.type === 'credit' ? 'Interes' : 'Rendimiento'} (%)</label>
-                      <input id="wallet-rate" type="number" value={form.interestRate} onChange={e => setForm(f => ({ ...f, interestRate: e.target.value }))} placeholder="0" className="w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff', fontFamily: 'inherit' }} />
-                    </div>
-                    <div className="w-28">
-                      <label htmlFor="wallet-period" className="text-xs font-medium block mb-1.5" style={{ color: '#9896b0' }}>Periodo</label>
-                      <select id="wallet-period" value={form.interestPeriod} onChange={e => setForm(f => ({ ...f, interestPeriod: e.target.value as Wallet['interestPeriod'] }))} className="w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff', fontFamily: 'inherit' }}>
-                        <option>EA</option><option>MV</option>
-                      </select>
-                    </div>
+                    <label className="flex-1 text-xs font-medium" style={{ color: '#9896b0' }}>{form.type === 'credit' ? 'Interes' : 'Rendimiento'} (%)<input type="number" value={form.interestRate} onChange={e => setForm(f => ({ ...f, interestRate: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} /></label>
+                    <label className="w-28 text-xs font-medium" style={{ color: '#9896b0' }}>Periodo<select value={form.interestPeriod} onChange={e => setForm(f => ({ ...f, interestPeriod: e.target.value as 'EA' | 'MV' }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }}><option>EA</option><option>MV</option></select></label>
                   </div>
                 )}
 
-                <label className="flex items-center gap-2 text-xs" style={{ color: '#9896b0' }}>
-                  <input type="checkbox" checked={form.includeInBalance} onChange={e => setForm(f => ({ ...f, includeInBalance: e.target.checked }))} />
-                  Incluir en balance total
-                </label>
+                {form.type === 'vault' && <label className="text-xs font-medium" style={{ color: '#9896b0' }}>Fecha limite<input type="date" value={form.vaultEndDate} onChange={e => setForm(f => ({ ...f, vaultEndDate: e.target.value }))} className="mt-1.5 w-full rounded-xl px-3 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }} /></label>}
+
+                {form.type !== 'pocket' && form.type !== 'vault' && <label className="flex items-center gap-2 text-xs" style={{ color: '#9896b0' }}><input type="checkbox" checked={form.includeInBalance} onChange={e => setForm(f => ({ ...f, includeInBalance: e.target.checked }))} /> Incluir en balance total</label>}
 
                 <div>
                   <span className="text-xs font-medium block mb-2" style={{ color: '#9896b0' }}>Color</span>
-                  <div className="flex gap-2 flex-wrap">
-                    {CATEGORY_COLORS.map(c => <button type="button" key={c} onClick={() => setForm(f => ({ ...f, color: c }))} className="w-8 h-8 rounded-lg" style={{ background: c, border: `2px solid ${form.color === c ? 'white' : 'transparent'}` }} />)}
-                  </div>
+                  <div className="flex gap-2 flex-wrap">{CATEGORY_COLORS.map(c => <button type="button" key={c} onClick={() => setForm(f => ({ ...f, color: c }))} className="w-8 h-8 rounded-lg" style={{ background: c, border: `2px solid ${form.color === c ? 'white' : 'transparent'}` }} />)}</div>
                 </div>
 
                 <div className="flex gap-3 mt-1">
-                  <button type="button" onClick={resetForm} className="flex-1 py-3.5 rounded-2xl text-sm font-medium" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#9896b0', cursor: 'pointer' }}>Cancelar</button>
-                  <button type="submit" className="flex-1 py-3.5 rounded-2xl text-sm font-semibold" style={{ background: 'linear-gradient(135deg, #7c6af7, #ec4899)', border: 'none', color: 'white', cursor: 'pointer' }}>{editingId ? 'Guardar' : 'Crear'}</button>
+                  <button type="button" onClick={resetForm} className="flex-1 py-3.5 rounded-2xl text-sm font-medium" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#9896b0' }}>Cancelar</button>
+                  <button type="submit" className="flex-1 py-3.5 rounded-2xl text-sm font-semibold" style={{ background: 'linear-gradient(135deg, #7c6af7, #ec4899)', border: 'none', color: 'white' }}>{editingId ? 'Guardar' : 'Crear'}</button>
                 </div>
               </form>
             </div>

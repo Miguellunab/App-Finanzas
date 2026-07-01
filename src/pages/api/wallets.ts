@@ -19,7 +19,7 @@ export const POST: APIRoute = async ({ request }) => {
     await ensureWalletColumns();
     const db = getDb();
     const body = await request.json();
-    const { name, emoji, color, currency, balance, type, interestRate, interestPeriod, includeInBalance } = body;
+    const { name, emoji, color, currency, balance, type, interestRate, interestPeriod, creditLimit, statementDay, dueDay, interestFromFirstInstallment, sourceWalletId, vaultEndDate, includeInBalance } = body;
 
     if (!name) return new Response(JSON.stringify({ error: 'name es requerido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
@@ -32,7 +32,13 @@ export const POST: APIRoute = async ({ request }) => {
       type: type ?? 'debit',
       interestRate: parseFloat(interestRate ?? '0'),
       interestPeriod: interestPeriod ?? 'EA',
-      includeInBalance: includeInBalance ?? true,
+      creditLimit: parseFloat(creditLimit ?? '0'),
+      statementDay: statementDay ? parseInt(statementDay) : null,
+      dueDay: dueDay ? parseInt(dueDay) : null,
+      interestFromFirstInstallment: interestFromFirstInstallment ?? false,
+      sourceWalletId: sourceWalletId ? parseInt(sourceWalletId) : null,
+      vaultEndDate: vaultEndDate || null,
+      includeInBalance: includeInBalance ?? !['pocket', 'vault'].includes(type ?? 'debit'),
     }).returning();
 
     return new Response(JSON.stringify({ data: result[0] }), { status: 201, headers: { 'Content-Type': 'application/json' } });
@@ -46,7 +52,7 @@ export const PUT: APIRoute = async ({ request }) => {
     await ensureWalletColumns();
     const db = getDb();
     const body = await request.json();
-    const { id, name, emoji, color, currency, balance, type, interestRate, interestPeriod, includeInBalance, isArchived } = body;
+    const { id, name, emoji, color, currency, balance, type, interestRate, interestPeriod, creditLimit, statementDay, dueDay, interestFromFirstInstallment, sourceWalletId, vaultEndDate, includeInBalance, isArchived } = body;
     if (!id) return new Response(JSON.stringify({ error: 'id requerido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
     const updates: any = {};
@@ -58,6 +64,12 @@ export const PUT: APIRoute = async ({ request }) => {
     if (type !== undefined) updates.type = type;
     if (interestRate !== undefined) updates.interestRate = parseFloat(interestRate);
     if (interestPeriod !== undefined) updates.interestPeriod = interestPeriod;
+    if (creditLimit !== undefined) updates.creditLimit = parseFloat(creditLimit);
+    if (statementDay !== undefined) updates.statementDay = statementDay ? parseInt(statementDay) : null;
+    if (dueDay !== undefined) updates.dueDay = dueDay ? parseInt(dueDay) : null;
+    if (interestFromFirstInstallment !== undefined) updates.interestFromFirstInstallment = interestFromFirstInstallment;
+    if (sourceWalletId !== undefined) updates.sourceWalletId = sourceWalletId ? parseInt(sourceWalletId) : null;
+    if (vaultEndDate !== undefined) updates.vaultEndDate = vaultEndDate || null;
     if (includeInBalance !== undefined) updates.includeInBalance = includeInBalance;
     if (isArchived !== undefined) updates.isArchived = isArchived;
 
