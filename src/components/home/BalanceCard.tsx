@@ -16,6 +16,8 @@ interface Wallet {
   currency: string;
   includeInBalance?: boolean;
   type?: string;
+  statementDay?: number | null;
+  dueDay?: number | null;
 }
 
 interface BalanceCardProps {
@@ -79,6 +81,7 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
                   <span className="text-sm font-medium block truncate" style={{ color: '#d4d2f0' }}>{w.name}</span>
                   {w.type === 'pocket' && <span className="text-[10px]" style={{ color: '#7c6af7' }}>Bolsillo</span>}
                   {w.type === 'credit' && <span className="text-[10px]" style={{ color: '#7c6af7' }}>Credito</span>}
+                  {w.type === 'credit' && <span className="text-[10px] block" style={{ color: '#9896b0' }}>Corte {w.statementDay || '?'} / pago {w.dueDay || '?'}</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -103,6 +106,7 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
                     <span className="text-sm font-medium block truncate" style={{ color: '#d4d2f0' }}>{w.name}</span>
                     {w.type === 'pocket' && <span className="text-[10px]" style={{ color: '#7c6af7' }}>Bolsillo</span>}
                     {w.type === 'credit' && <span className="text-[10px]" style={{ color: '#7c6af7' }}>Credito</span>}
+                    {w.type === 'credit' && <span className="text-[10px] block" style={{ color: '#9896b0' }}>Corte {w.statementDay || '?'} / pago {w.dueDay || '?'}</span>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

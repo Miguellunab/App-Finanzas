@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CATEGORY_COLORS, formatNumberInput, parseNumberInput } from '../../lib/utils';
+import { CATEGORY_COLORS, formatNumberInput, parseNumberInput, walletLogo } from '../../lib/utils';
 
 interface AIInterpretation {
   type: 'income' | 'expense' | 'transfer';
@@ -35,6 +35,11 @@ interface AIModalProps {
 
 const typeLabels = { income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia' };
 const typeColors = { income: '#22c55e', expense: '#f43f5e', transfer: '#3b82f6' };
+
+function WalletMark({ wallet }: { wallet: Wallet }) {
+  const logo = walletLogo(wallet.emoji, wallet.name);
+  return logo ? <img src={logo} alt="" className="h-5 w-5 object-contain" /> : <span className="text-base">{wallet.emoji}</span>;
+}
 
 export default function AIModal({ interpretation, wallets, categories, onConfirm, onCancel, isOpen }: AIModalProps) {
   const [editedData, setEditedData] = useState<AIInterpretation | null>(null);
@@ -180,12 +185,14 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
               {needsNewWallet ? (
                 <div className="rounded-xl p-3" style={{ background: '#18181f', border: '1px solid rgba(234,179,8,0.3)', color: '#f1f0ff' }}>Se creara: {data.wallet.emoji} {data.wallet.name}</div>
               ) : (
-                <select value={data.wallet?.id ?? ''} onChange={e => {
-                  const w = wallets.find(w => w.id === parseInt(e.target.value));
-                  if (w) update({ wallet: { id: w.id, name: w.name, emoji: w.emoji, exists: true } });
-                }} className="w-full rounded-xl px-4 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff', fontFamily: 'inherit' }}>
-                  {wallets.map(w => <option key={w.id} value={w.id}>{w.emoji} {w.name}</option>)}
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  {wallets.filter(w => w.type !== 'vault').map(w => (
+                    <button type="button" key={w.id} onClick={() => update({ wallet: { id: w.id, name: w.name, emoji: w.emoji, exists: true } })} className="flex items-center gap-2 min-w-0 rounded-xl px-3 py-3 text-sm" style={{ background: data.wallet?.id === w.id ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${data.wallet?.id === w.id ? '#7c6af7' : '#2a2a38'}`, color: '#f1f0ff' }}>
+                      <WalletMark wallet={w} />
+                      <span className="truncate">{w.name}</span>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
 
