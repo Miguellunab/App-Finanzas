@@ -6,7 +6,7 @@ interface AIInterpretation {
   amount: number;
   currency: string;
   description: string;
-  expenseKind?: 'fixed' | 'variable' | null;
+  expenseKind?: 'fixed' | 'variable' | 'mismatch' | null;
   wallet: { id: number | null; name: string; emoji: string; exists: boolean };
   walletDestination?: { id: number | null; name: string; emoji: string; exists: boolean } | null;
   clarification?: string | null;
@@ -33,7 +33,7 @@ interface AIModalProps {
 
 const typeLabels = { income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia' };
 const typeColors = { income: '#22c55e', expense: '#f43f5e', transfer: '#3b82f6' };
-const expenseKindLabels = { fixed: 'Fijo', variable: 'Variable' };
+const expenseKindLabels = { fixed: 'Fijo', variable: 'Variable', mismatch: 'Descuadre' };
 
 function WalletMark({ wallet }: { wallet: Wallet }) {
   const logo = walletLogo(wallet.emoji, wallet.name);
@@ -146,8 +146,8 @@ export default function AIModal({ interpretation, wallets, onConfirm, onCancel, 
             {data.type === 'expense' && (
               <div>
                 <span className="text-xs font-medium mb-1.5 block" style={{ color: '#9896b0' }}>Tipo de gasto</span>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['fixed', 'variable'] as const).map(kind => (
+                <div className="grid grid-cols-3 gap-2">
+                  {(['fixed', 'variable', 'mismatch'] as const).map(kind => (
                     <button type="button" key={kind} onClick={() => update({ expenseKind: kind })} className="rounded-xl px-3 py-3 text-sm font-medium" style={{ background: data.expenseKind === kind ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${data.expenseKind === kind ? '#7c6af7' : '#2a2a38'}`, color: data.expenseKind === kind ? '#f1f0ff' : '#9896b0' }}>
                       {expenseKindLabels[kind]}
                     </button>

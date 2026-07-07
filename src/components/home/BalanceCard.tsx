@@ -48,6 +48,10 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
     return logo ? <img src={logo} alt="" className="h-5 w-5 object-contain" /> : <span className="text-base">{w.emoji}</span>;
   };
 
+  const openHistory = (id: number) => {
+    window.location.href = `/historial?walletId=${id}`;
+  };
+
   return (
     <div className="mx-4 mt-5 rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a1530 0%, #12112a 50%, #0f1528 100%)', border: '1px solid rgba(124,106,247,0.3)', boxShadow: '0 8px 32px rgba(124,106,247,0.12)' }}>
       <div className="p-6 pb-4">
@@ -74,7 +78,7 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
         {visibleWallets.map((w) => {
           const visible = w.includeInBalance !== false;
           return (
-            <div key={w.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', opacity: visible ? 1 : 0.55 }}>
+            <div key={w.id} role="button" tabIndex={0} onClick={() => openHistory(w.id)} onKeyDown={(e) => { if (e.key === 'Enter') openHistory(w.id); }} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-left" style={{ background: 'rgba(255,255,255,0.04)', opacity: visible ? 1 : 0.55, cursor: 'pointer' }}>
               <div className="flex items-center gap-2.5 min-w-0">
                 {walletMark(w)}
                 <div className="min-w-0">
@@ -86,7 +90,7 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold whitespace-nowrap" style={{ color: w.type === 'credit' ? '#f43f5e' : w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{formatCOP(w.type === 'credit' ? creditDebt(w) : w.balance, w.currency)}</span>
-                {(w.type === 'debit' || w.type === 'credit') && <button onClick={() => toggleBalance(w)} className="text-[10px] px-2 py-1 rounded-lg" style={{ background: visible ? 'rgba(34,197,94,0.12)' : 'rgba(244,63,94,0.12)', border: '1px solid #2a2a38', color: visible ? '#22c55e' : '#f43f5e' }}>
+                {(w.type === 'debit' || w.type === 'credit') && <button onClick={(e) => { e.stopPropagation(); toggleBalance(w); }} className="text-[10px] px-2 py-1 rounded-lg" style={{ background: visible ? 'rgba(34,197,94,0.12)' : 'rgba(244,63,94,0.12)', border: '1px solid #2a2a38', color: visible ? '#22c55e' : '#f43f5e' }}>
                   {visible ? 'Ocultar' : 'Mostrar'}
                 </button>}
               </div>
@@ -99,7 +103,7 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
               {showHidden ? 'v' : '>'} Ocultas ({hiddenWallets.length})
             </button>
             {showHidden && hiddenWallets.map((w) => (
-              <div key={w.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', opacity: 0.55 }}>
+              <div key={w.id} role="button" tabIndex={0} onClick={() => openHistory(w.id)} onKeyDown={(e) => { if (e.key === 'Enter') openHistory(w.id); }} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-left" style={{ background: 'rgba(255,255,255,0.04)', opacity: 0.55, cursor: 'pointer' }}>
                 <div className="flex items-center gap-2.5 min-w-0">
                   {walletMark(w)}
                   <div className="min-w-0">
@@ -111,7 +115,7 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold whitespace-nowrap" style={{ color: w.type === 'credit' ? '#f43f5e' : w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{formatCOP(w.type === 'credit' ? creditDebt(w) : w.balance, w.currency)}</span>
-                  {(w.type === 'debit' || w.type === 'credit') && <button onClick={() => toggleBalance(w)} className="text-[10px] px-2 py-1 rounded-lg" style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid #2a2a38', color: '#f43f5e' }}>
+                  {(w.type === 'debit' || w.type === 'credit') && <button onClick={(e) => { e.stopPropagation(); toggleBalance(w); }} className="text-[10px] px-2 py-1 rounded-lg" style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid #2a2a38', color: '#f43f5e' }}>
                     Mostrar
                   </button>}
                 </div>

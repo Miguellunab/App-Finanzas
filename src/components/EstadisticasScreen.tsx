@@ -80,7 +80,7 @@ export default function EstadisticasScreen() {
 
   const pieData = stats?.byExpenseKind
     ?.filter((c: any) => c.total > 0)
-    ?.map((c: any) => ({ name: c.expenseKind === 'fixed' ? 'Fijos' : c.expenseKind === 'variable' ? 'Variables' : 'Sin clasificar', value: c.total, color: c.expenseKind === 'fixed' ? '#3b82f6' : c.expenseKind === 'variable' ? '#ec4899' : '#7c6af7' }))
+    ?.map((c: any) => ({ name: c.expenseKind === 'fixed' ? 'Fijos' : c.expenseKind === 'variable' ? 'Variables' : c.expenseKind === 'mismatch' ? 'Descuadres' : 'Sin clasificar', value: c.total, color: c.expenseKind === 'fixed' ? '#3b82f6' : c.expenseKind === 'variable' ? '#ec4899' : c.expenseKind === 'mismatch' ? '#f59e0b' : '#7c6af7' }))
     ?? [];
 
   const barData = stats?.byDay?.map((d: any) => ({
@@ -186,8 +186,8 @@ export default function EstadisticasScreen() {
               ) : (
                 stats?.byExpenseKind?.map((cat: any, i: number) => {
                   const pct = stats.expenses > 0 ? (cat.total / stats.expenses * 100) : 0;
-                  const label = cat.expenseKind === 'fixed' ? 'Fijos' : cat.expenseKind === 'variable' ? 'Variables' : 'Sin clasificar';
-                  const color = cat.expenseKind === 'fixed' ? '#3b82f6' : cat.expenseKind === 'variable' ? '#ec4899' : '#7c6af7';
+                  const label = cat.expenseKind === 'fixed' ? 'Fijos' : cat.expenseKind === 'variable' ? 'Variables' : cat.expenseKind === 'mismatch' ? 'Descuadres' : 'Sin clasificar';
+                  const color = cat.expenseKind === 'fixed' ? '#3b82f6' : cat.expenseKind === 'variable' ? '#ec4899' : cat.expenseKind === 'mismatch' ? '#f59e0b' : '#7c6af7';
                   return (
                     <motion.div key={cat.expenseKind ?? i}
                       initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}

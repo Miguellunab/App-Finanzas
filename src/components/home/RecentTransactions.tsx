@@ -5,7 +5,7 @@ interface Transaction {
   currency: string;
   description: string;
   date: string;
-  expenseKind?: 'fixed' | 'variable' | null;
+  expenseKind?: 'fixed' | 'variable' | 'mismatch' | null;
   walletName?: string | null;
   aiGenerated?: boolean;
 }
@@ -75,7 +75,7 @@ export default function RecentTransactions({ transactions, onDelete }: RecentTra
       <div className="flex flex-col">
         {transactions.map((tx, i) => {
           const cfg = typeConfig[tx.type];
-          const kind = tx.expenseKind === 'fixed' ? 'Fijo' : tx.expenseKind === 'variable' ? 'Variable' : null;
+          const kind = tx.expenseKind === 'fixed' ? 'Fijo' : tx.expenseKind === 'variable' ? 'Variable' : tx.expenseKind === 'mismatch' ? 'Descuadre' : null;
           return (
             <div key={tx.id} className="flex items-center gap-3 px-5 py-3.5 group" style={{ borderBottom: i < transactions.length - 1 ? '1px solid #1a1a22' : 'none' }}>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: cfg.bg, color: cfg.color }}>

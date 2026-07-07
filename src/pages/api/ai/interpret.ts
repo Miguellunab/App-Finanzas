@@ -57,7 +57,7 @@ ${recent.map(t => `- ID:${t.id} ${t.date} ${t.type} $${t.amount} "${t.descriptio
       amount: parsed.amount ?? 0,
       currency: parsed.currency ?? 'COP',
       description: parsed.description ?? text,
-      expenseKind: parsed.expenseKind === 'fixed' || parsed.expenseKind === 'variable' ? parsed.expenseKind : null,
+      expenseKind: parsed.expenseKind === 'fixed' || parsed.expenseKind === 'variable' || parsed.expenseKind === 'mismatch' ? parsed.expenseKind : null,
       wallet: {
         id: parsed.wallet?.id ?? null,
         name: parsed.wallet?.name ?? wallets[0]?.name ?? 'Efectivo',

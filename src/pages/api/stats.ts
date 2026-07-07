@@ -45,7 +45,7 @@ export const GET: APIRoute = async ({ url }) => {
     const expenses = totals.find(t => t.type === 'expense')?.total ?? 0;
     const transfers = totals.find(t => t.type === 'transfer')?.total ?? 0;
 
-    // Gastos fijos vs variables
+    // Gastos por tipo
     const expenseConditions = [eq(schema.transactions.type, 'expense')];
     if (dateFilter) expenseConditions.push(dateFilter);
 
