@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { CATEGORY_COLORS, formatNumberInput, parseNumberInput, walletLogo } from '../../lib/utils';
+import { formatNumberInput, parseNumberInput, walletLogo } from '../../lib/utils';
 
 interface AIInterpretation {
   type: 'income' | 'expense' | 'transfer';
   amount: number;
   currency: string;
   description: string;
-  category: { id: number | null; name: string; emoji: string; exists: boolean };
+  expenseKind?: 'fixed' | 'variable' | null;
   wallet: { id: number | null; name: string; emoji: string; exists: boolean };
   walletDestination?: { id: number | null; name: string; emoji: string; exists: boolean } | null;
   clarification?: string | null;
@@ -22,12 +22,10 @@ interface Wallet {
   interestPeriod?: string;
   interestFromFirstInstallment?: boolean;
 }
-interface Category { id: number; name: string; emoji: string; }
 
 interface AIModalProps {
   interpretation: AIInterpretation | null;
   wallets: Wallet[];
-  categories: Category[];
   onConfirm: (data: any) => Promise<void>;
   onCancel: () => void;
   isOpen: boolean;
@@ -35,16 +33,15 @@ interface AIModalProps {
 
 const typeLabels = { income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia' };
 const typeColors = { income: '#22c55e', expense: '#f43f5e', transfer: '#3b82f6' };
+const expenseKindLabels = { fixed: 'Fijo', variable: 'Variable' };
 
 function WalletMark({ wallet }: { wallet: Wallet }) {
   const logo = walletLogo(wallet.emoji, wallet.name);
   return logo ? <img src={logo} alt="" className="h-5 w-5 object-contain" /> : <span className="text-base">{wallet.emoji}</span>;
 }
 
-export default function AIModal({ interpretation, wallets, categories, onConfirm, onCancel, isOpen }: AIModalProps) {
+export default function AIModal({ interpretation, wallets, onConfirm, onCancel, isOpen }: AIModalProps) {
   const [editedData, setEditedData] = useState<AIInterpretation | null>(null);
-  const [creatingCategory, setCreatingCategory] = useState(false);
-  const [newCategoryEmoji, setNewCategoryEmoji] = useState('');
   const [loading, setLoading] = useState(false);
   const [installments, setInstallments] = useState(1);
   const [interestApplied, setInterestApplied] = useState(false);
@@ -52,7 +49,6 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
 
   if (!isOpen || !data) return null;
 
-  const needsNewCategory = data.category && !data.category.exists;
   const needsNewWallet = data.wallet && !data.wallet.exists;
   const selectedWallet = wallets.find(w => w.id === data.wallet?.id);
   const isCreditExpense = selectedWallet?.type === 'credit' && data.type === 'expense';
@@ -69,23 +65,7 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
   const handleConfirm = async () => {
     setLoading(true);
     try {
-      let categoryId = data.category?.id ?? null;
       let walletId = data.wallet?.id ?? null;
-
-      if (needsNewCategory && creatingCategory) {
-        const res = await fetch('/api/categories', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: data.category.name,
-            emoji: newCategoryEmoji || data.category.emoji,
-            color: CATEGORY_COLORS[Math.floor(Math.random() * CATEGORY_COLORS.length)],
-            type: data.type === 'income' ? 'income' : 'expense',
-          }),
-        });
-        const created = await res.json();
-        categoryId = created.data?.id ?? null;
-      }
 
       if (needsNewWallet) {
         const res = await fetch('/api/wallets', {
@@ -101,7 +81,7 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
         type: data.type,
         amount: data.amount,
         currency: data.currency,
-        categoryId,
+        expenseKind: data.type === 'expense' ? data.expenseKind : null,
         walletId,
         walletDestinationId: data.walletDestination?.id ?? null,
         description: data.description,
@@ -157,31 +137,21 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
               </div>
             </div>
 
-            <div>
-              <span className="text-xs font-medium mb-1.5 block" style={{ color: '#9896b0' }}>Categoria</span>
-              {needsNewCategory ? (
-                <div className="rounded-xl p-3" style={{ background: '#18181f', border: '1px solid rgba(234,179,8,0.3)' }}>
-                  <p className="text-sm font-medium" style={{ color: '#f1f0ff' }}>Sugerida: <span style={{ color: '#eab308' }}>{data.category.emoji} {data.category.name}</span></p>
-                  <div className="flex gap-2 mt-3">
-                    <input value={newCategoryEmoji || data.category.emoji} onChange={e => setNewCategoryEmoji(e.target.value)} className="w-14 text-center rounded-xl px-2 py-2 text-base outline-none" style={{ background: '#111118', border: '1px solid #2a2a38', color: '#f1f0ff' }} />
-                    <button type="button" onClick={() => setCreatingCategory(v => !v)} className="flex-1 py-2 rounded-xl text-xs font-medium" style={{ background: creatingCategory ? 'rgba(234,179,8,0.2)' : '#111118', border: `1px solid ${creatingCategory ? '#eab308' : '#2a2a38'}`, color: creatingCategory ? '#eab308' : '#9896b0' }}>
-                      {creatingCategory ? 'Crear categoria' : 'Sin categoria'}
+            {data.type === 'expense' && (
+              <div>
+                <span className="text-xs font-medium mb-1.5 block" style={{ color: '#9896b0' }}>Tipo de gasto</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['fixed', 'variable'] as const).map(kind => (
+                    <button type="button" key={kind} onClick={() => update({ expenseKind: kind })} className="rounded-xl px-3 py-3 text-sm font-medium" style={{ background: data.expenseKind === kind ? 'rgba(124,106,247,0.2)' : '#18181f', border: `1px solid ${data.expenseKind === kind ? '#7c6af7' : '#2a2a38'}`, color: data.expenseKind === kind ? '#f1f0ff' : '#9896b0' }}>
+                      {expenseKindLabels[kind]}
                     </button>
-                  </div>
+                  ))}
                 </div>
-              ) : (
-                <select value={data.category?.id ?? ''} onChange={e => {
-                  const cat = categories.find(c => c.id === parseInt(e.target.value));
-                  if (cat) update({ category: { id: cat.id, name: cat.name, emoji: cat.emoji, exists: true } });
-                }} className="w-full rounded-xl px-4 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff', fontFamily: 'inherit' }}>
-                  <option value="">Sin categoria</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}
-                </select>
-              )}
-            </div>
+              </div>
+            )}
 
             <div>
-              <span className="text-xs font-medium mb-1.5 block" style={{ color: '#9896b0' }}>Billetera</span>
+              <span className="text-xs font-medium mb-1.5 block" style={{ color: '#9896b0' }}>{data.type === 'transfer' ? 'Billetera origen' : 'Billetera'}</span>
               {needsNewWallet ? (
                 <div className="rounded-xl p-3" style={{ background: '#18181f', border: '1px solid rgba(234,179,8,0.3)', color: '#f1f0ff' }}>Se creara: {data.wallet.emoji} {data.wallet.name}</div>
               ) : (
@@ -195,6 +165,20 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
                 </div>
               )}
             </div>
+
+            {data.type === 'transfer' && (
+              <div>
+                <span className="text-xs font-medium mb-1.5 block" style={{ color: '#9896b0' }}>Billetera destino</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {wallets.filter(w => w.type !== 'vault' && w.id !== data.wallet?.id).map(w => (
+                    <button type="button" key={w.id} onClick={() => update({ walletDestination: { id: w.id, name: w.name, emoji: w.emoji, exists: true } })} className="flex items-center gap-2 min-w-0 rounded-xl px-3 py-3 text-sm" style={{ background: data.walletDestination?.id === w.id ? 'rgba(59,130,246,0.2)' : '#18181f', border: `1px solid ${data.walletDestination?.id === w.id ? '#3b82f6' : '#2a2a38'}`, color: '#f1f0ff' }}>
+                      <WalletMark wallet={w} />
+                      <span className="truncate">{w.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {isCreditExpense && (
               <div className="rounded-xl p-3" style={{ background: '#18181f', border: '1px solid #2a2a38' }}>
@@ -218,7 +202,7 @@ export default function AIModal({ interpretation, wallets, categories, onConfirm
 
           <div className="px-5 pb-6 flex gap-3">
             <button onClick={onCancel} className="flex-1 py-3.5 rounded-2xl text-sm font-medium" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#9896b0', cursor: 'pointer' }}>Cancelar</button>
-            <button onClick={handleConfirm} disabled={loading || !data.amount || (!data.wallet?.id && !needsNewWallet)} className="flex-1 py-3.5 rounded-2xl text-sm font-semibold" style={{ background: 'linear-gradient(135deg, #7c6af7, #ec4899)', border: 'none', color: 'white', cursor: loading ? 'wait' : 'pointer' }}>
+            <button onClick={handleConfirm} disabled={loading || !data.amount || (!data.wallet?.id && !needsNewWallet) || (data.type === 'transfer' && !data.walletDestination?.id)} className="flex-1 py-3.5 rounded-2xl text-sm font-semibold" style={{ background: 'linear-gradient(135deg, #7c6af7, #ec4899)', border: 'none', color: 'white', cursor: loading ? 'wait' : 'pointer' }}>
               {loading ? 'Guardando...' : 'Confirmar'}
             </button>
           </div>

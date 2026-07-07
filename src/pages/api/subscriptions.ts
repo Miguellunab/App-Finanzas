@@ -1,55 +1,9 @@
 import type { APIRoute } from 'astro';
 import { getDb, schema } from '../../lib/db';
-import { eq, lte, and, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { ensureWalletColumns } from '../../lib/walletColumns';
 import { ensureSubscriptionColumns } from '../../lib/subscriptionColumns';
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function nextMonthlyDate(from: string, day: number) {
-  const base = new Date(`${from}T00:00:00`);
-  const y = base.getFullYear();
-  const m = base.getMonth() + 1;
-  const last = new Date(y, m + 1, 0).getDate();
-  return new Date(y, m, Math.min(day, last)).toISOString().slice(0, 10);
-}
-
-function nextChargeDateForDay(day: number) {
-  const base = new Date(`${today()}T00:00:00`);
-  const lastThisMonth = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
-  const thisMonth = new Date(base.getFullYear(), base.getMonth(), Math.min(day, lastThisMonth));
-  if (thisMonth >= base) return thisMonth.toISOString().slice(0, 10);
-  const lastNextMonth = new Date(base.getFullYear(), base.getMonth() + 2, 0).getDate();
-  return new Date(base.getFullYear(), base.getMonth() + 1, Math.min(day, lastNextMonth)).toISOString().slice(0, 10);
-}
-
-async function chargeDueSubscriptions() {
-  const db = getDb();
-  const date = today();
-  const due = await db.select().from(schema.subscriptions).where(and(eq(schema.subscriptions.isArchived, false), lte(schema.subscriptions.nextChargeDate, date)));
-
-  for (const sub of due) {
-    await db.insert(schema.transactions).values({
-      type: 'expense',
-      amount: sub.amount,
-      currency: sub.currency,
-      walletId: sub.walletId,
-      description: `Suscripcion: ${sub.name}`,
-      date: sub.nextChargeDate,
-    });
-
-    const wallet = await db.select({ type: schema.wallets.type }).from(schema.wallets).where(eq(schema.wallets.id, sub.walletId)).limit(1);
-    await db.update(schema.wallets)
-      .set({ balance: wallet[0]?.type === 'credit' ? sql`balance + ${sub.amount}` : sql`balance - ${sub.amount}` })
-      .where(eq(schema.wallets.id, sub.walletId));
-
-    await db.update(schema.subscriptions)
-      .set({ lastChargedDate: sub.nextChargeDate, nextChargeDate: nextMonthlyDate(date, sub.chargeDay) })
-      .where(eq(schema.subscriptions.id, sub.id));
-  }
-}
+import { chargeDueSubscriptions, nextChargeDateForDay } from '../../lib/subscriptions';
 
 export const GET: APIRoute = async () => {
   try {

@@ -4,10 +4,12 @@ import { eq, sql, gte, lte, and } from 'drizzle-orm';
 import { getGroq, MODELS, STATS_SYSTEM_PROMPT } from '../../lib/groq';
 import { getCurrentMonthRange } from '../../lib/utils';
 import { ensureWalletColumns } from '../../lib/walletColumns';
+import { chargeDueSubscriptions, today } from '../../lib/subscriptions';
 
 export const GET: APIRoute = async ({ url }) => {
   try {
     await ensureWalletColumns();
+    await chargeDueSubscriptions();
     const db = getDb();
     const searchParams = url.searchParams;
     const period = searchParams.get('period') ?? 'month'; // month | all
@@ -43,29 +45,18 @@ export const GET: APIRoute = async ({ url }) => {
     const expenses = totals.find(t => t.type === 'expense')?.total ?? 0;
     const transfers = totals.find(t => t.type === 'transfer')?.total ?? 0;
 
-    // Gastos por categoría
+    // Gastos fijos vs variables
     const expenseConditions = [eq(schema.transactions.type, 'expense')];
     if (dateFilter) expenseConditions.push(dateFilter);
 
-    const byCategory = await db.select({
-      categoryId: schema.transactions.categoryId,
-      categoryName: schema.categories.name,
-      categoryEmoji: schema.categories.emoji,
-      categoryColor: schema.categories.color,
-      budgetLimit: schema.categories.budgetLimit,
+    const byExpenseKind = await db.select({
+      expenseKind: schema.transactions.expenseKind,
       total: sql<number>`COALESCE(SUM(${schema.transactions.amount}), 0)`,
       count: sql<number>`COUNT(*)::int`,
     })
     .from(schema.transactions)
-    .leftJoin(schema.categories, eq(schema.transactions.categoryId, schema.categories.id))
     .where(and(...expenseConditions))
-    .groupBy(
-      schema.transactions.categoryId,
-      schema.categories.name,
-      schema.categories.emoji,
-      schema.categories.color,
-      schema.categories.budgetLimit
-    )
+    .groupBy(schema.transactions.expenseKind)
     .orderBy(sql`SUM(${schema.transactions.amount}) DESC`);
 
     // Gastos por día (últimos 30 días)
@@ -135,7 +126,7 @@ export const GET: APIRoute = async ({ url }) => {
         income, expenses, transfers,
         balance: income - expenses,
         totalBalance,
-        byCategory,
+        byExpenseKind,
         byDay,
         wallets,
       }
@@ -171,11 +162,10 @@ export const POST: APIRoute = async ({ request }) => {
       currency: schema.transactions.currency,
       description: schema.transactions.description,
       date: schema.transactions.date,
-      categoryName: schema.categories.name,
+      expenseKind: schema.transactions.expenseKind,
       walletName: schema.wallets.name,
     })
     .from(schema.transactions)
-    .leftJoin(schema.categories, eq(schema.transactions.categoryId, schema.categories.id))
     .leftJoin(schema.wallets, eq(schema.transactions.walletId, schema.wallets.id))
     .where(and(gte(schema.transactions.date, startDate), lte(schema.transactions.date, endDate)))
     .orderBy(schema.transactions.date);
@@ -188,19 +178,19 @@ export const POST: APIRoute = async ({ request }) => {
 
     const totalIncome = txs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
     const totalExpenses = txs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-    const today = new Date().toISOString().split('T')[0];
+    const currentDate = today();
     const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
     const currentDay = new Date().getDate();
 
     const dataContext = `
 PERIODO: ${startDate} al ${endDate}
-HOY: ${today} (dia ${currentDay} de ${daysInMonth})
+HOY: ${currentDate} (dia ${currentDay} de ${daysInMonth})
 TOTAL INGRESOS: $${totalIncome.toLocaleString('es-CO')} COP
 TOTAL GASTOS: $${totalExpenses.toLocaleString('es-CO')} COP
 BALANCE DEL PERIODO: $${(totalIncome - totalExpenses).toLocaleString('es-CO')} COP
 
 TRANSACCIONES (${txs.length} en total):
-${txs.map(t => `- [${t.date}] ${t.type === 'income' ? 'INGRESO' : t.type === 'expense' ? 'GASTO' : 'TRANSFERENCIA'} $${t.amount.toLocaleString('es-CO')} COP | Categoria: ${t.categoryName ?? 'Sin categoria'} | Billetera: ${t.walletName ?? 'N/A'} | "${t.description}"`).join('\n')}
+${txs.map(t => `- [${t.date}] ${t.type === 'income' ? 'INGRESO' : t.type === 'expense' ? 'GASTO' : 'TRANSFERENCIA'} $${t.amount.toLocaleString('es-CO')} COP | Tipo gasto: ${t.expenseKind ?? 'sin clasificar'} | Billetera: ${t.walletName ?? 'N/A'} | "${t.description}"`).join('\n')}
     `.trim();
 
     const groq = getGroq();

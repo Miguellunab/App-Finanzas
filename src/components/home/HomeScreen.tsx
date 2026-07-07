@@ -19,7 +19,6 @@ export default function HomeScreen() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
   const [interpretation, setInterpretation] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [interpreting, setInterpreting] = useState(false);
@@ -33,17 +32,15 @@ export default function HomeScreen() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [statsRes, txRes, walletsRes, catsRes] = await Promise.all([
+      const [statsRes, txRes, walletsRes] = await Promise.all([
         fetch('/api/stats?period=all'),
         fetch('/api/transactions?limit=10'),
         fetch('/api/wallets'),
-        fetch('/api/categories'),
       ]);
-      const [statsData, txData, walletsData, catsData] = await Promise.all([statsRes.json(), txRes.json(), walletsRes.json(), catsRes.json()]);
+      const [statsData, txData, walletsData] = await Promise.all([statsRes.json(), txRes.json(), walletsRes.json()]);
       setStats(statsData.data);
       setTransactions(txData.data ?? []);
       setWallets(walletsData.data ?? []);
-      setCategories(catsData.data ?? []);
     } catch {
       showToast('Error al cargar datos', 'error');
     } finally {
@@ -123,7 +120,7 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      <AIModal isOpen={modalOpen} interpretation={interpretation} wallets={wallets} categories={categories} onConfirm={handleConfirm} onCancel={() => { setModalOpen(false); setInterpretation(null); }} />
+      <AIModal isOpen={modalOpen} interpretation={interpretation} wallets={wallets} onConfirm={handleConfirm} onCancel={() => { setModalOpen(false); setInterpretation(null); }} />
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-[100] px-5 py-3 rounded-2xl text-sm font-medium" style={{ transform: 'translateX(-50%)', background: toast.type === 'success' ? '#18181f' : '#2a0e14', border: `1px solid ${toast.type === 'success' ? '#2a2a38' : '#f43f5e40'}`, color: toast.type === 'success' ? '#f1f0ff' : '#f43f5e', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', whiteSpace: 'nowrap' }}>

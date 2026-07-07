@@ -2,23 +2,23 @@ import type { APIRoute } from 'astro';
 import { getDb, schema } from '../../lib/db';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
 import { ensureWalletColumns } from '../../lib/walletColumns';
+import { chargeDueSubscriptions, today } from '../../lib/subscriptions';
 
 export const GET: APIRoute = async ({ url }) => {
   try {
     await ensureWalletColumns();
+    await chargeDueSubscriptions();
     const db = getDb();
     const searchParams = url.searchParams;
     const limit = parseInt(searchParams.get('limit') ?? '50');
     const offset = parseInt(searchParams.get('offset') ?? '0');
     const type = searchParams.get('type');
-    const categoryId = searchParams.get('categoryId');
     const walletId = searchParams.get('walletId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
     const conditions = [];
     if (type) conditions.push(eq(schema.transactions.type, type as any));
-    if (categoryId) conditions.push(eq(schema.transactions.categoryId, parseInt(categoryId)));
     if (walletId) conditions.push(eq(schema.transactions.walletId, parseInt(walletId)));
     if (startDate) conditions.push(gte(schema.transactions.date, startDate));
     if (endDate) conditions.push(lte(schema.transactions.date, endDate));
@@ -36,17 +36,13 @@ export const GET: APIRoute = async ({ url }) => {
         installments: schema.transactions.installments,
         interestApplied: schema.transactions.interestApplied,
         createdAt: schema.transactions.createdAt,
-        categoryId: schema.transactions.categoryId,
+        expenseKind: schema.transactions.expenseKind,
         walletId: schema.transactions.walletId,
         walletDestinationId: schema.transactions.walletDestinationId,
-        categoryName: schema.categories.name,
-        categoryEmoji: schema.categories.emoji,
-        categoryColor: schema.categories.color,
         walletName: schema.wallets.name,
         walletEmoji: schema.wallets.emoji,
       })
       .from(schema.transactions)
-      .leftJoin(schema.categories, eq(schema.transactions.categoryId, schema.categories.id))
       .leftJoin(schema.wallets, eq(schema.transactions.walletId, schema.wallets.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(schema.transactions.date), desc(schema.transactions.createdAt))
@@ -71,10 +67,15 @@ export const POST: APIRoute = async ({ request }) => {
     await ensureWalletColumns();
     const db = getDb();
     const body = await request.json();
-    const { type, amount, currency, categoryId, walletId, walletDestinationId, description, aiGenerated, rawInput, installments, interestApplied, date } = body;
+    const { type, amount, currency, expenseKind, walletId, walletDestinationId, description, aiGenerated, rawInput, installments, interestApplied, date } = body;
 
     if (!type || !amount || !walletId) {
       return new Response(JSON.stringify({ error: 'Faltan campos requeridos: type, amount, walletId' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (type === 'transfer' && (!walletDestinationId || walletDestinationId === walletId)) {
+      return new Response(JSON.stringify({ error: 'Una transferencia necesita billetera destino distinta' }), {
         status: 400, headers: { 'Content-Type': 'application/json' },
       });
     }
@@ -82,14 +83,15 @@ export const POST: APIRoute = async ({ request }) => {
     // Insertar transacción
     const result = await db.insert(schema.transactions).values({
       type, amount: parseFloat(amount), currency: currency ?? 'COP',
-      categoryId: categoryId ? parseInt(categoryId) : null,
+      categoryId: null,
+      expenseKind: type === 'expense' && (expenseKind === 'fixed' || expenseKind === 'variable') ? expenseKind : null,
       walletId: parseInt(walletId),
       walletDestinationId: walletDestinationId ? parseInt(walletDestinationId) : null,
       description: description ?? '', aiGenerated: aiGenerated ?? false,
       rawInput: rawInput ?? null,
       installments: parseInt(installments ?? '1'),
       interestApplied: interestApplied ?? false,
-      date: date ?? new Date().toISOString().split('T')[0],
+      date: date ?? today(),
     }).returning();
     const wallet = await db.select({ type: schema.wallets.type }).from(schema.wallets).where(eq(schema.wallets.id, parseInt(walletId))).limit(1);
     const isCredit = wallet[0]?.type === 'credit';

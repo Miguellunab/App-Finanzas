@@ -43,6 +43,7 @@ export const transactions = pgTable('transactions', {
   amount: real('amount').notNull(),
   currency: text('currency').notNull().default('COP'),
   categoryId: integer('category_id').references(() => categories.id),
+  expenseKind: text('expense_kind'),
   walletId: integer('wallet_id').notNull().references(() => wallets.id),
   walletDestinationId: integer('wallet_destination_id').references(() => wallets.id), // Para transferencias
   description: text('description').notNull().default(''),

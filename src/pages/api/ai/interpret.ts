@@ -15,13 +15,6 @@ export const POST: APIRoute = async ({ request }) => {
       emoji: schema.wallets.emoji,
     }).from(schema.wallets).where(eq(schema.wallets.isArchived, false));
 
-    const categories = await db.select({
-      id: schema.categories.id,
-      name: schema.categories.name,
-      emoji: schema.categories.emoji,
-      type: schema.categories.type,
-    }).from(schema.categories).where(eq(schema.categories.isArchived, false));
-
     const recent = await db.select({
       id: schema.transactions.id,
       type: schema.transactions.type,
@@ -29,12 +22,11 @@ export const POST: APIRoute = async ({ request }) => {
       description: schema.transactions.description,
       date: schema.transactions.date,
       walletName: schema.wallets.name,
-      categoryName: schema.categories.name,
+      expenseKind: schema.transactions.expenseKind,
       createdAt: schema.transactions.createdAt,
     })
       .from(schema.transactions)
       .leftJoin(schema.wallets, eq(schema.transactions.walletId, schema.wallets.id))
-      .leftJoin(schema.categories, eq(schema.transactions.categoryId, schema.categories.id))
       .orderBy(desc(schema.transactions.createdAt))
       .limit(12);
 
@@ -43,11 +35,8 @@ export const POST: APIRoute = async ({ request }) => {
 BILLETERAS:
 ${wallets.map(w => `- ID:${w.id} "${w.name}" ${w.emoji}`).join('\n') || '(ninguna)'}
 
-CATEGORIAS:
-${categories.map(c => `- ID:${c.id} "${c.name}" ${c.emoji} (${c.type})`).join('\n') || '(ninguna)'}
-
 ULTIMOS MOVIMIENTOS:
-${recent.map(t => `- ID:${t.id} ${t.date} ${t.type} $${t.amount} "${t.description}" billetera:${t.walletName ?? 'N/A'} categoria:${t.categoryName ?? 'N/A'}`).join('\n') || '(ninguno)'}`;
+${recent.map(t => `- ID:${t.id} ${t.date} ${t.type} $${t.amount} "${t.description}" billetera:${t.walletName ?? 'N/A'} gasto:${t.expenseKind ?? 'N/A'}`).join('\n') || '(ninguno)'}`;
 
     const completion = await getGroq().chat.completions.create({
       model: MODELS.text,
@@ -68,12 +57,7 @@ ${recent.map(t => `- ID:${t.id} ${t.date} ${t.type} $${t.amount} "${t.descriptio
       amount: parsed.amount ?? 0,
       currency: parsed.currency ?? 'COP',
       description: parsed.description ?? text,
-      category: {
-        id: parsed.category?.id ?? null,
-        name: parsed.category?.name ?? 'Sin categoria',
-        emoji: parsed.category?.emoji ?? '📌',
-        exists: parsed.category?.exists ?? false,
-      },
+      expenseKind: parsed.expenseKind === 'fixed' || parsed.expenseKind === 'variable' ? parsed.expenseKind : null,
       wallet: {
         id: parsed.wallet?.id ?? null,
         name: parsed.wallet?.name ?? wallets[0]?.name ?? 'Efectivo',

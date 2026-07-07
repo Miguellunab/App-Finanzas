@@ -18,6 +18,7 @@ export function ensureWalletColumns() {
     getDb().execute(sql`ALTER TABLE wallets ADD COLUMN IF NOT EXISTS include_in_balance boolean NOT NULL DEFAULT true`),
     getDb().execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS installments integer NOT NULL DEFAULT 1`),
     getDb().execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS interest_applied boolean NOT NULL DEFAULT false`),
+    getDb().execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS expense_kind text`),
   ]).then(() => undefined);
   return ready;
 }

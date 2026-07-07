@@ -26,7 +26,7 @@ Estructura:
   "amount": number,
   "currency": "COP" | "USD" | "EUR" | string,
   "description": string,
-  "category": {"name": string, "emoji": string, "exists": boolean, "id": number | null},
+  "expenseKind": "fixed" | "variable" | null,
   "wallet": {"name": string, "emoji": string, "exists": boolean, "id": number | null},
   "walletDestination": {"name": string | null, "emoji": string | null, "exists": boolean, "id": number | null} | null,
   "confidence": number,
@@ -36,14 +36,15 @@ Estructura:
 Reglas:
 - Si el usuario pide eliminar, borrar, quitar o anular un movimiento, action = "delete_transaction".
 - Para "el ultimo movimiento", usa el ID del movimiento mas reciente del contexto.
-- Para borrar un movimiento especifico, usa el ID que mejor coincida por monto, descripcion, categoria o billetera.
+- Para borrar un movimiento especifico, usa el ID que mejor coincida por monto, descripcion o billetera.
 - Si no sabes cual borrar, targetTransactionId = null y pon una pregunta breve en clarification.
 - Para registrar algo nuevo, action = "create_transaction".
 - Gasto = "expense", ingreso = "income", transferencia = "transfer".
 - Moneda por defecto COP.
 - Convierte lenguaje colombiano: "20 mil" = 20000, "medio palo" = 500000.
-- Haz match con billeteras/categorias existentes por nombre o sentido. Si no existe, exists=false.
-- Usa un emoji de categoria profesional: deuda=💳, comida=🛒, transporte=🚕, salario=💼, ahorro=🏦, general=📌.
+- Haz match con billeteras existentes por nombre o sentido. Si no existe, exists=false.
+- En transferencias, wallet es origen y walletDestination es destino. Si el usuario dice "de Bancolombia a Nequi", origen=Bancolombia y destino=Nequi.
+- Para gastos, clasifica expenseKind como "fixed" o "variable". Fijos: gasolina, desayuno, almuerzo, cena, comidas principales, mercado, arriendo, servicios, transporte necesario, suscripciones, salud, deudas. Variables: empanadas, helados, antojos, snacks, ocio, compras impulsivas. Si no aplica o no sabes, null.
 - confidence va de 0 a 1.`;
 
 export const STATS_SYSTEM_PROMPT = `Eres un asesor financiero personal experto. Analiza datos financieros y genera insights utiles, practicos y directos en espanol.`;

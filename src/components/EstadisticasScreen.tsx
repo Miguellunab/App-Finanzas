@@ -50,7 +50,7 @@ export default function EstadisticasScreen() {
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingReview, setLoadingReview] = useState(false);
   const [period, setPeriod] = useState<'month' | 'all'>('month');
-  const [activeTab, setActiveTab] = useState<'overview' | 'categories' | 'review'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'review'>('overview');
 
   useEffect(() => {
     setLoadingStats(true);
@@ -78,9 +78,9 @@ export default function EstadisticasScreen() {
     }
   };
 
-  const pieData = stats?.byCategory
+  const pieData = stats?.byExpenseKind
     ?.filter((c: any) => c.total > 0)
-    ?.map((c: any) => ({ name: `${c.categoryEmoji ?? '📦'} ${c.categoryName ?? 'Sin cat.'}`, value: c.total, color: c.categoryColor ?? '#7c6af7' }))
+    ?.map((c: any) => ({ name: c.expenseKind === 'fixed' ? 'Fijos' : c.expenseKind === 'variable' ? 'Variables' : 'Sin clasificar', value: c.total, color: c.expenseKind === 'fixed' ? '#3b82f6' : c.expenseKind === 'variable' ? '#ec4899' : '#7c6af7' }))
     ?? [];
 
   const barData = stats?.byDay?.map((d: any) => ({
@@ -128,7 +128,7 @@ export default function EstadisticasScreen() {
 
         {/* Tabs */}
         <div className="flex px-4 mt-5 gap-1 rounded-2xl p-1" style={{ background: '#111118', margin: '20px 16px 0' }}>
-          {([['overview', 'Gráficas'], ['categories', 'Categorías'], ['review', 'IA Review']] as const).map(([tab, label]) => (
+          {([['overview', 'Gráficas'], ['expenses', 'Gastos'], ['review', 'IA Review']] as const).map(([tab, label]) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className="flex-1 py-2 rounded-xl text-xs font-medium transition-all"
               style={{ background: activeTab === tab ? '#18181f' : 'transparent', color: activeTab === tab ? '#f1f0ff' : '#5a5870', cursor: 'pointer', border: 'none' }}>
@@ -179,38 +179,35 @@ export default function EstadisticasScreen() {
             </motion.div>
           )}
 
-          {activeTab === 'categories' && (
+          {activeTab === 'expenses' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-4 flex flex-col gap-2">
-              {stats?.byCategory?.length === 0 ? (
-                <p className="text-center py-10 text-sm" style={{ color: '#9896b0' }}>Sin datos de categorías</p>
+              {stats?.byExpenseKind?.length === 0 ? (
+                <p className="text-center py-10 text-sm" style={{ color: '#9896b0' }}>Sin datos de gastos</p>
               ) : (
-                stats?.byCategory?.map((cat: any, i: number) => {
+                stats?.byExpenseKind?.map((cat: any, i: number) => {
                   const pct = stats.expenses > 0 ? (cat.total / stats.expenses * 100) : 0;
-                  const overBudget = cat.budgetLimit && cat.total > cat.budgetLimit;
+                  const label = cat.expenseKind === 'fixed' ? 'Fijos' : cat.expenseKind === 'variable' ? 'Variables' : 'Sin clasificar';
+                  const color = cat.expenseKind === 'fixed' ? '#3b82f6' : cat.expenseKind === 'variable' ? '#ec4899' : '#7c6af7';
                   return (
-                    <motion.div key={cat.categoryId ?? i}
+                    <motion.div key={cat.expenseKind ?? i}
                       initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-                      className="p-4 rounded-2xl" style={{ background: '#111118', border: `1px solid ${overBudget ? '#f43f5e40' : '#1e1e28'}` }}>
+                      className="p-4 rounded-2xl" style={{ background: '#111118', border: '1px solid #1e1e28' }}>
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg">{cat.categoryEmoji ?? '📦'}</span>
-                          <span className="text-sm font-medium" style={{ color: '#f1f0ff' }}>{cat.categoryName ?? 'Sin categoría'}</span>
-                          {overBudget && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(244,63,94,0.15)', color: '#f43f5e' }}>⚠ Límite</span>}
+                          <span className="text-sm font-medium" style={{ color: '#f1f0ff' }}>{label}</span>
                         </div>
-                        <span className="text-sm font-bold" style={{ color: overBudget ? '#f43f5e' : '#f1f0ff' }}>
+                        <span className="text-sm font-bold" style={{ color: '#f1f0ff' }}>
                           {formatFull(cat.total)}
                         </span>
                       </div>
                       <div className="w-full rounded-full h-1.5 overflow-hidden" style={{ background: '#1e1e28' }}>
                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(pct, 100)}%` }}
                           transition={{ duration: 0.6, delay: i * 0.04 }}
-                          style={{ height: '100%', background: cat.categoryColor ?? '#7c6af7', borderRadius: '99px' }} />
+                          style={{ height: '100%', background: color, borderRadius: '99px' }} />
                       </div>
                       <div className="flex justify-between mt-1">
                         <span className="text-xs" style={{ color: '#5a5870' }}>{pct.toFixed(1)}% del total</span>
-                        {cat.budgetLimit && (
-                          <span className="text-xs" style={{ color: '#5a5870' }}>Límite: {formatFull(cat.budgetLimit)}</span>
-                        )}
+                        <span className="text-xs" style={{ color: '#5a5870' }}>{cat.count} movimientos</span>
                       </div>
                     </motion.div>
                   );

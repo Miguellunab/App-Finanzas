@@ -8,8 +8,7 @@ interface Transaction {
   currency: string;
   description: string;
   date: string;
-  categoryName?: string | null;
-  categoryEmoji?: string | null;
+  expenseKind?: 'fixed' | 'variable' | null;
   walletName?: string | null;
   walletEmoji?: string | null;
   aiGenerated?: boolean;
@@ -57,7 +56,7 @@ export default function HistorialScreen() {
   const filtered = transactions.filter(tx =>
     !search ||
     tx.description.toLowerCase().includes(search.toLowerCase()) ||
-    tx.categoryName?.toLowerCase().includes(search.toLowerCase()) ||
+    tx.expenseKind?.toLowerCase().includes(search.toLowerCase()) ||
     tx.walletName?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -117,15 +116,18 @@ export default function HistorialScreen() {
           Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a)).map(([date, txs]) => (
             <div key={date} className="mb-1">
               <p className="px-5 py-2 text-xs font-semibold" style={{ color: '#5a5870' }}>{formatDate(date)}</p>
-              {txs.map(tx => (
+              {txs.map(tx => {
+                const kind = tx.expenseKind === 'fixed' ? 'Fijo' : tx.expenseKind === 'variable' ? 'Variable' : null;
+                return (
                 <div key={tx.id} className="flex items-center gap-3 mx-4 px-4 py-3.5 rounded-2xl mb-1 group" style={{ background: '#111118', border: '1px solid #1a1a22' }}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0" style={{ background: `${typeColors[tx.type]}15` }}>
-                    {tx.categoryEmoji ?? typeSymbols[tx.type]}
+                    {typeSymbols[tx.type]}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: '#f1f0ff' }}>{tx.description || tx.categoryName || tx.type}</p>
+                    <p className="text-sm font-medium truncate" style={{ color: '#f1f0ff' }}>{tx.description || tx.type}</p>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs" style={{ color: '#5a5870' }}>{tx.walletEmoji} {tx.walletName}</span>
+                      {kind && <span className="text-xs" style={{ color: '#5a5870' }}>- {kind}</span>}
                       {tx.aiGenerated && <span className="text-xs px-1.5 rounded" style={{ background: 'rgba(124,106,247,0.1)', color: '#7c6af7' }}>IA</span>}
                     </div>
                   </div>
@@ -138,7 +140,8 @@ export default function HistorialScreen() {
                     x
                   </button>
                 </div>
-              ))}
+              );
+              })}
             </div>
           ))
         )}

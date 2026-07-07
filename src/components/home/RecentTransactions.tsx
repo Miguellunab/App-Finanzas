@@ -5,8 +5,7 @@ interface Transaction {
   currency: string;
   description: string;
   date: string;
-  categoryName?: string | null;
-  categoryEmoji?: string | null;
+  expenseKind?: 'fixed' | 'variable' | null;
   walletName?: string | null;
   aiGenerated?: boolean;
 }
@@ -42,7 +41,7 @@ const typeConfig = {
 };
 
 function TransactionIcon({ tx }: { tx: Transaction }) {
-  const text = `${tx.description} ${tx.categoryName ?? ''}`.toLowerCase();
+  const text = tx.description.toLowerCase();
   if (text.includes('deuda') || text.includes('credito') || text.includes('tarjeta')) return <CardIcon />;
   if (text.includes('comida') || text.includes('mercado') || text.includes('empanada')) return <CartIcon />;
   if (tx.type === 'income') return <IncomeIcon />;
@@ -76,17 +75,18 @@ export default function RecentTransactions({ transactions, onDelete }: RecentTra
       <div className="flex flex-col">
         {transactions.map((tx, i) => {
           const cfg = typeConfig[tx.type];
+          const kind = tx.expenseKind === 'fixed' ? 'Fijo' : tx.expenseKind === 'variable' ? 'Variable' : null;
           return (
             <div key={tx.id} className="flex items-center gap-3 px-5 py-3.5 group" style={{ borderBottom: i < transactions.length - 1 ? '1px solid #1a1a22' : 'none' }}>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: cfg.bg, color: cfg.color }}>
-                {tx.categoryEmoji ? <span className="text-lg">{tx.categoryEmoji}</span> : <TransactionIcon tx={tx} />}
+                <TransactionIcon tx={tx} />
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: '#f1f0ff' }}>{tx.description || tx.categoryName || cfg.label}</p>
+                <p className="text-sm font-medium truncate" style={{ color: '#f1f0ff' }}>{tx.description || cfg.label}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="text-xs" style={{ color: '#5a5870' }}>{formatRelativeDate(tx.date)}</span>
-                  {tx.categoryName && <span className="text-xs" style={{ color: '#5a5870' }}>- {tx.categoryName}</span>}
+                  {kind && <span className="text-xs" style={{ color: '#5a5870' }}>- {kind}</span>}
                   {tx.aiGenerated && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(124,106,247,0.15)', color: '#7c6af7' }}>IA</span>}
                 </div>
               </div>
