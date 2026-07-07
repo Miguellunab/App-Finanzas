@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import AppShell from './layout/AppShell';
+import { walletLogo } from '../lib/utils';
 
 interface Transaction {
   id: number;
@@ -26,6 +27,11 @@ interface Wallet {
 const typeColors = { income: '#22c55e', expense: '#f43f5e', transfer: '#3b82f6' };
 const typeSymbols = { income: '+', expense: '-', transfer: '<>' };
 const kindLabels = { fixed: 'Fijo', variable: 'Variable', mismatch: 'Descuadre' };
+
+function WalletMark({ emoji, name }: { emoji?: string | null; name?: string | null }) {
+  const logo = walletLogo(emoji ?? '', name ?? '');
+  return logo ? <img src={logo} alt="" className="h-4 w-4 object-contain" /> : <span>{emoji ?? '$'}</span>;
+}
 
 function formatCOP(amount: number, currency: string) {
   try {
@@ -167,7 +173,10 @@ export default function HistorialScreen() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: '#f1f0ff' }}>{tx.description || tx.type}</p>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs" style={{ color: '#5a5870' }}>{tx.walletEmoji} {tx.walletName}</span>
+                      <span className="flex items-center gap-1 text-xs min-w-0" style={{ color: '#5a5870' }}>
+                        <WalletMark emoji={tx.walletEmoji} name={tx.walletName} />
+                        <span className="truncate">{tx.walletName}</span>
+                      </span>
                       {kind && <span className="text-xs" style={{ color: '#5a5870' }}>- {kind}</span>}
                       {tx.aiGenerated && <span className="text-xs px-1.5 rounded" style={{ background: 'rgba(124,106,247,0.1)', color: '#7c6af7' }}>IA</span>}
                     </div>
