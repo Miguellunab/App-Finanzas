@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatNumberInput, parseNumberInput, walletLogo } from '../../lib/utils';
 
 interface AIInterpretation {
@@ -46,6 +46,12 @@ export default function AIModal({ interpretation, wallets, onConfirm, onCancel, 
   const [installments, setInstallments] = useState(1);
   const [interestApplied, setInterestApplied] = useState(false);
   const data = editedData ?? interpretation;
+
+  useEffect(() => {
+    setEditedData(null);
+    setInstallments(1);
+    setInterestApplied(false);
+  }, [interpretation]);
 
   if (!isOpen || !data) return null;
 
