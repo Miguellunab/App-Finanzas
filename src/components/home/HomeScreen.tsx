@@ -87,7 +87,7 @@ export default function HomeScreen() {
 
   return (
     <AppShell currentPath="/" title="Inicio">
-      <div className="pb-8">
+      <div className="pb-8 ui-enter">
         {loading ? (
           <div className="px-4 mt-5 flex flex-col gap-4">
             <div className="skeleton h-48 rounded-2xl" />
@@ -100,7 +100,7 @@ export default function HomeScreen() {
           </>
         )}
 
-        <div className="mx-4 mt-5 rounded-2xl p-5" style={{ background: '#111118', border: '1px solid #1e1e28' }}>
+        <div className="mx-4 mt-5 rounded-2xl p-5 ui-enter ui-enter-delay" style={{ background: '#111118', border: '1px solid #1e1e28' }}>
           <p className="text-xs font-semibold mb-4 text-center" style={{ color: '#9896b0' }}>Registrar movimiento</p>
           <div className="flex justify-center mb-5">
             <VoiceButton onTranscribed={handleTextOrVoice} disabled={interpreting} />

@@ -109,6 +109,17 @@ html, body {
   100% { background-position: 200% 0; }
 }
 
+@keyframes ui-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ui-enter {
+  animation: ui-enter 280ms ease-out both;
+}
+
+.ui-enter-delay { animation-delay: 70ms; }
+
 .skeleton {
   background: linear-gradient(90deg, var(--color-bg-elevated) 25%, var(--color-bg-hover) 50%, var(--color-bg-elevated) 75%);
   background-size: 200% 100%;
@@ -118,4 +129,9 @@ html, body {
 
 .date-dark::-webkit-calendar-picker-indicator {
   filter: invert(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-enter { animation: none; }
+  .skeleton { animation: none; }
 }

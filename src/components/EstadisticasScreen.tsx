@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import AppShell from './layout/AppShell';
 import AILoadingAnim from './animations/AILoadingAnim';
@@ -11,6 +11,7 @@ function formatFull(n: number, currency = 'COP') {
 }
 
 export default function EstadisticasScreen() {
+  const reduceMotion = useReducedMotion();
   const [stats, setStats] = useState<any>(null);
   const [review, setReview] = useState<string | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -63,7 +64,7 @@ export default function EstadisticasScreen() {
 
   return (
     <AppShell currentPath="/estadisticas" title="Estadísticas">
-      <div className="pb-8">
+      <div className="pb-8 ui-enter">
         {/* Period selector */}
         <div className="px-4 pt-4 flex gap-2">
           {(['month', 'all'] as const).map(p => (
@@ -141,8 +142,8 @@ export default function EstadisticasScreen() {
                     <BarChart data={barData} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
                       <XAxis dataKey="date" tick={{ fill: '#5a5870', fontSize: 9 }} tickLine={false} axisLine={false} />
                       <YAxis hide />
-                      <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={20} isAnimationActive={false} />
-                      <Bar dataKey="expense" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={20} isAnimationActive={false} />
+                      <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={20} animationDuration={450} isAnimationActive={!reduceMotion} />
+                      <Bar dataKey="expense" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={20} animationDuration={450} isAnimationActive={!reduceMotion} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -155,7 +156,7 @@ export default function EstadisticasScreen() {
                   <ResponsiveContainer width="100%" height={180} style={{ pointerEvents: 'none' }}>
                     <PieChart>
                       <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
-                        dataKey="value" paddingAngle={3} isAnimationActive={false}>
+                        dataKey="value" paddingAngle={3} animationDuration={450} isAnimationActive={!reduceMotion}>
                         {pieData.map((entry: any, index: number) => (
                           <Cell key={index} fill={entry.color} />
                         ))}

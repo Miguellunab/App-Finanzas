@@ -130,7 +130,7 @@ export default function BilleterasScreen() {
 
   return (
     <AppShell currentPath="/billeteras" title="Billeteras">
-      <div className="pb-8">
+      <div className="pb-8 ui-enter">
         {loading ? (
           <div className="px-4 mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-40 rounded-2xl" />)}
@@ -139,7 +139,7 @@ export default function BilleterasScreen() {
           const items = wallets.filter(w => (w.type ?? 'debit') === type);
           if (!items.length) return null;
           return (
-            <section key={type} className="px-4 mt-5">
+            <section key={type} className="px-4 mt-5 ui-enter">
               <h2 className="text-xs font-semibold mb-3 uppercase tracking-wider" style={{ color: '#9896b0' }}>{title}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {items.map(w => (

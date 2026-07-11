@@ -115,7 +115,7 @@ export default function HistorialScreen() {
 
   return (
     <AppShell currentPath="/historial" title="Historial">
-      <div className="pb-8">
+      <div className="pb-8 ui-enter">
         <div className="sticky top-0 z-10 px-4 pt-4 pb-3" style={{ background: 'rgba(10,10,15,0.9)', backdropFilter: 'blur(6px)' }}>
           <div className="flex items-center gap-2 rounded-2xl px-4 py-3 mb-3" style={{ background: '#111118', border: '1px solid #2a2a38' }}>
             <input
@@ -161,7 +161,7 @@ export default function HistorialScreen() {
           </div>
         ) : (
           Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a)).map(([date, txs]) => (
-            <div key={date} className="mb-1">
+            <div key={date} className="mb-1 ui-enter">
               <p className="px-5 py-2 text-xs font-semibold" style={{ color: '#5a5870' }}>{formatDate(date)}</p>
               {txs.map(tx => {
                 const kind = tx.expenseKind ? kindLabels[tx.expenseKind] : null;
