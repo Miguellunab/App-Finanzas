@@ -1,50 +1,16 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import AppShell from './layout/AppShell';
 import AILoadingAnim from './animations/AILoadingAnim';
 import StatKPIAnim from './animations/StatKPIAnim';
-import useLiteMode from '../hooks/useLiteMode';
-
-function formatCOP(n: number) {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n}`;
-}
 
 function formatFull(n: number, currency = 'COP') {
   try { return new Intl.NumberFormat('es-CO', { style: 'currency', currency, minimumFractionDigits: 0 }).format(n); }
   catch { return `$${n}`; }
 }
 
-const CustomPieTooltip = ({ active, payload }: any) => {
-  if (active && payload?.length) {
-    return (
-      <div style={{ background: '#18181f', border: '1px solid #2a2a38', borderRadius: '0.75rem', padding: '0.6rem 1rem', fontSize: '0.75rem' }}>
-        <p style={{ color: '#f1f0ff', fontWeight: 600 }}>{payload[0].name}</p>
-        <p style={{ color: payload[0].fill }}>{formatFull(payload[0].value)}</p>
-      </div>
-    );
-  }
-  return null;
-};
-
-const CustomBarTooltip = ({ active, payload, label }: any) => {
-  if (active && payload?.length) {
-    return (
-      <div style={{ background: '#18181f', border: '1px solid #2a2a38', borderRadius: '0.75rem', padding: '0.6rem 1rem', fontSize: '0.75rem' }}>
-        <p style={{ color: '#9896b0', marginBottom: 4 }}>{label}</p>
-        {payload.map((p: any) => (
-          <p key={p.name} style={{ color: p.fill, fontWeight: 600 }}>{p.name === 'income' ? '↑' : '↓'} {formatCOP(p.value)}</p>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
-
 export default function EstadisticasScreen() {
-  const liteMode = useLiteMode();
   const [stats, setStats] = useState<any>(null);
   const [review, setReview] = useState<string | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -78,10 +44,14 @@ export default function EstadisticasScreen() {
     }
   };
 
-  const pieData = stats?.byExpenseKind
+  const expensePieData = stats?.byExpenseKind
     ?.filter((c: any) => c.total > 0)
     ?.map((c: any) => ({ name: c.expenseKind === 'fixed' ? 'Fijos' : c.expenseKind === 'variable' ? 'Variables' : c.expenseKind === 'mismatch' ? 'Ajustes por faltante' : 'Sin clasificar', value: c.total, color: c.expenseKind === 'fixed' ? '#3b82f6' : c.expenseKind === 'variable' ? '#ec4899' : c.expenseKind === 'mismatch' ? '#f59e0b' : '#7c6af7' }))
     ?? [];
+  const surplus = stats?.adjustments?.find((entry: any) => entry.kind === 'surplus');
+  const pieData = surplus?.total > 0
+    ? [...expensePieData, { name: 'Ajustes por sobrante', value: surplus.total, color: '#22c55e' }]
+    : expensePieData;
 
   const barData = stats?.byDay?.map((d: any) => ({
     date: new Date(d.date + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }),
@@ -167,13 +137,12 @@ export default function EstadisticasScreen() {
                 {barData.length === 0 ? (
                   <p className="text-xs text-center py-8" style={{ color: '#5a5870' }}>Sin datos</p>
                 ) : (
-                  <ResponsiveContainer width="100%" height={150}>
+                  <ResponsiveContainer width="100%" height={150} style={{ pointerEvents: 'none' }}>
                     <BarChart data={barData} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
                       <XAxis dataKey="date" tick={{ fill: '#5a5870', fontSize: 9 }} tickLine={false} axisLine={false} />
                       <YAxis hide />
-                      <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-                      <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={20} isAnimationActive={!liteMode} />
-                      <Bar dataKey="expense" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={20} isAnimationActive={!liteMode} />
+                      <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={20} isAnimationActive={false} />
+                      <Bar dataKey="expense" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={20} isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -182,19 +151,18 @@ export default function EstadisticasScreen() {
               {/* Distribución de gastos */}
               {pieData.length > 0 && (
                 <div className="p-4 rounded-2xl" style={{ background: '#111118', border: '1px solid #1e1e28' }}>
-                  <p className="text-xs font-semibold mb-4" style={{ color: '#9896b0' }}>Distribución de gastos</p>
-                  <ResponsiveContainer width="100%" height={180}>
+                  <p className="text-xs font-semibold mb-4" style={{ color: '#9896b0' }}>Distribución por categoría</p>
+                  <ResponsiveContainer width="100%" height={180} style={{ pointerEvents: 'none' }}>
                     <PieChart>
                       <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
-                        dataKey="value" paddingAngle={3} isAnimationActive={!liteMode}>
+                        dataKey="value" paddingAngle={3} isAnimationActive={false}>
                         {pieData.map((entry: any, index: number) => (
                           <Cell key={index} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip content={<CustomPieTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="flex flex-col gap-2 mt-2" aria-label="Leyenda de distribución de gastos">
+                  <div className="flex flex-col gap-2 mt-2" aria-label="Leyenda de distribución por categoría">
                     {pieData.map((entry: any) => (
                       <div key={entry.name} className="flex items-center justify-between gap-3 text-xs">
                         <span className="flex items-center gap-2 min-w-0" style={{ color: '#9896b0' }}>
