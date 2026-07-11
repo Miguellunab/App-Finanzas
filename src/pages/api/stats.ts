@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getDb, schema } from '../../lib/db';
-import { eq, sql, gte, lte, and } from 'drizzle-orm';
+import { eq, sql, gte, lte, and, or } from 'drizzle-orm';
 import { getGroq, MODELS, STATS_SYSTEM_PROMPT } from '../../lib/groq';
 import { getCurrentMonthRange } from '../../lib/utils';
 import { ensureWalletColumns } from '../../lib/walletColumns';
@@ -58,6 +58,20 @@ export const GET: APIRoute = async ({ url }) => {
     .where(and(...expenseConditions))
     .groupBy(schema.transactions.expenseKind)
     .orderBy(sql`SUM(${schema.transactions.amount}) DESC`);
+
+    const adjustmentConditions = [or(
+      and(eq(schema.transactions.type, 'expense'), eq(schema.transactions.expenseKind, 'mismatch')),
+      and(eq(schema.transactions.type, 'income'), eq(schema.transactions.expenseKind, 'surplus')),
+    )];
+    if (dateFilter) adjustmentConditions.push(dateFilter);
+    const adjustments = await db.select({
+      kind: schema.transactions.expenseKind,
+      total: sql<number>`COALESCE(SUM(${schema.transactions.amount}), 0)`,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(schema.transactions)
+    .where(and(...adjustmentConditions))
+    .groupBy(schema.transactions.expenseKind);
 
     // Gastos por día (últimos 30 días)
     const last30Days = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
@@ -127,6 +141,7 @@ export const GET: APIRoute = async ({ url }) => {
         balance: income - expenses,
         totalBalance,
         byExpenseKind,
+        adjustments,
         byDay,
         wallets,
       }

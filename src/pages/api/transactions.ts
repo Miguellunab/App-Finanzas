@@ -62,7 +62,10 @@ export const GET: APIRoute = async ({ url }) => {
   }
 };
 
-const validExpenseKind = (value: unknown) => value === 'fixed' || value === 'variable' || value === 'mismatch';
+const validTransactionKind = (type: string, value: unknown) =>
+  type === 'expense'
+    ? value === 'fixed' || value === 'variable' || value === 'mismatch'
+    : type === 'income' && value === 'surplus';
 
 async function applyToWallets(db: ReturnType<typeof getDb>, tx: { type: string; amount: number; walletId: number; walletDestinationId?: number | null }, undo = false) {
   const amount = undo ? -tx.amount : tx.amount;
@@ -100,7 +103,7 @@ export const POST: APIRoute = async ({ request }) => {
     const result = await db.insert(schema.transactions).values({
       type, amount: parseFloat(amount), currency: currency ?? 'COP',
       categoryId: null,
-      expenseKind: type === 'expense' && validExpenseKind(expenseKind) ? expenseKind : null,
+      expenseKind: validTransactionKind(type, expenseKind) ? expenseKind : null,
       walletId: parseInt(walletId),
       walletDestinationId: walletDestinationId ? parseInt(walletDestinationId) : null,
       description: description ?? '', aiGenerated: aiGenerated ?? false,
@@ -148,7 +151,7 @@ export const PUT: APIRoute = async ({ request }) => {
       type: body.type,
       amount,
       currency: body.currency ?? 'COP',
-      expenseKind: body.type === 'expense' && validExpenseKind(body.expenseKind) ? body.expenseKind : null,
+      expenseKind: validTransactionKind(body.type, body.expenseKind) ? body.expenseKind : null,
       walletId,
       walletDestinationId,
       description: body.description ?? '',

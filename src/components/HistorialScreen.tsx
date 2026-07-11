@@ -9,7 +9,7 @@ interface Transaction {
   currency: string;
   description: string;
   date: string;
-  expenseKind?: 'fixed' | 'variable' | 'mismatch' | null;
+  expenseKind?: 'fixed' | 'variable' | 'mismatch' | 'surplus' | null;
   walletId: number;
   walletDestinationId?: number | null;
   walletName?: string | null;
@@ -26,7 +26,7 @@ interface Wallet {
 
 const typeColors = { income: '#22c55e', expense: '#f43f5e', transfer: '#3b82f6' };
 const typeSymbols = { income: '+', expense: '-', transfer: '<>' };
-const kindLabels = { fixed: 'Fijo', variable: 'Variable', mismatch: 'Descuadre' };
+const kindLabels = { fixed: 'Fijo', variable: 'Variable', mismatch: 'Ajuste por faltante', surplus: 'Ajuste por sobrante' };
 
 function WalletMark({ emoji, name }: { emoji?: string | null; name?: string | null }) {
   const logo = walletLogo(emoji ?? '', name ?? '');
@@ -233,6 +233,11 @@ export default function HistorialScreen() {
                       </button>
                     ))}
                   </div>
+                )}
+                {editing.type === 'income' && (
+                  <button onClick={() => setEditing({ ...editing, expenseKind: editing.expenseKind === 'surplus' ? null : 'surplus' })} className="rounded-xl py-2.5 text-xs font-medium" style={{ background: editing.expenseKind === 'surplus' ? 'rgba(34,197,94,0.15)' : '#18181f', border: `1px solid ${editing.expenseKind === 'surplus' ? '#22c55e' : '#2a2a38'}`, color: editing.expenseKind === 'surplus' ? '#22c55e' : '#9896b0' }}>
+                    Ajuste por sobrante
+                  </button>
                 )}
                 <select value={editing.walletId} onChange={e => setEditing({ ...editing, walletId: parseInt(e.target.value) })} className="rounded-xl px-4 py-3 text-sm outline-none" style={{ background: '#18181f', border: '1px solid #2a2a38', color: '#f1f0ff' }}>
                   {wallets.filter(w => w.type !== 'vault').map(w => <option key={w.id} value={w.id}>{w.name}</option>)}

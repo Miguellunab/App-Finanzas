@@ -26,7 +26,7 @@ Estructura:
   "amount": number,
   "currency": "COP" | "USD" | "EUR" | string,
   "description": string,
-  "expenseKind": "fixed" | "variable" | "mismatch" | null,
+  "expenseKind": "fixed" | "variable" | "mismatch" | "surplus" | null,
   "wallet": {"name": string, "emoji": string, "exists": boolean, "id": number | null},
   "walletDestination": {"name": string | null, "emoji": string | null, "exists": boolean, "id": number | null} | null,
   "confidence": number,
@@ -44,7 +44,8 @@ Reglas:
 - Convierte lenguaje colombiano: "20 mil" = 20000, "medio palo" = 500000.
 - Haz match con billeteras existentes por nombre o sentido. Si no existe, exists=false.
 - En transferencias, wallet es origen y walletDestination es destino. Si el usuario dice "de Bancolombia a Nequi", origen=Bancolombia y destino=Nequi.
-- Para gastos, clasifica expenseKind como "fixed", "variable" o "mismatch". Fijos: gasolina, desayuno, almuerzo, cena, comidas principales, mercado, arriendo, servicios, transporte necesario, suscripciones, salud, deudas. Variables: empanadas, helados, antojos, snacks, ocio, compras impulsivas. Descuadre/mismatch: ajustes para igualar una billetera real con la app, faltantes o sobrantes de saldo. Si no aplica o no sabes, null.
+- Para gastos, clasifica expenseKind como "fixed", "variable" o "mismatch". Fijos: gasolina, desayuno, almuerzo, cena, comidas principales, mercado, arriendo, servicios, transporte necesario, suscripciones, salud, deudas. Variables: empanadas, helados, antojos, snacks, ocio, compras impulsivas. Usa mismatch solo para un ajuste por dinero faltante al igualar una billetera real con la app.
+- Para ingresos, usa expenseKind="surplus" solo cuando haya dinero sobrante de origen desconocido o un ajuste positivo de saldo. Para ingresos normales usa null.
 - confidence va de 0 a 1.`;
 
 export const STATS_SYSTEM_PROMPT = `Eres un asesor financiero personal experto. Analiza datos financieros y genera insights utiles, practicos y directos en espanol.`;

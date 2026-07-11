@@ -6,7 +6,7 @@ interface AIInterpretation {
   amount: number;
   currency: string;
   description: string;
-  expenseKind?: 'fixed' | 'variable' | 'mismatch' | null;
+  expenseKind?: 'fixed' | 'variable' | 'mismatch' | 'surplus' | null;
   wallet: { id: number | null; name: string; emoji: string; exists: boolean };
   walletDestination?: { id: number | null; name: string; emoji: string; exists: boolean } | null;
   clarification?: string | null;
@@ -33,7 +33,7 @@ interface AIModalProps {
 
 const typeLabels = { income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia' };
 const typeColors = { income: '#22c55e', expense: '#f43f5e', transfer: '#3b82f6' };
-const expenseKindLabels = { fixed: 'Fijo', variable: 'Variable', mismatch: 'Descuadre' };
+const expenseKindLabels = { fixed: 'Fijo', variable: 'Variable', mismatch: 'Ajuste por faltante' };
 
 function WalletMark({ wallet }: { wallet: Wallet }) {
   const logo = walletLogo(wallet.emoji, wallet.name);
@@ -87,7 +87,7 @@ export default function AIModal({ interpretation, wallets, onConfirm, onCancel, 
         type: data.type,
         amount: data.amount,
         currency: data.currency,
-        expenseKind: data.type === 'expense' ? data.expenseKind : null,
+        expenseKind: data.type === 'expense' || data.type === 'income' ? data.expenseKind : null,
         walletId,
         walletDestinationId: data.walletDestination?.id ?? null,
         description: data.description,
@@ -153,6 +153,15 @@ export default function AIModal({ interpretation, wallets, onConfirm, onCancel, 
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {data.type === 'income' && (
+              <div>
+                <span className="text-xs font-medium mb-1.5 block" style={{ color: '#9896b0' }}>Tipo de ingreso</span>
+                <button type="button" onClick={() => update({ expenseKind: data.expenseKind === 'surplus' ? null : 'surplus' })} className="w-full rounded-xl px-3 py-3 text-sm font-medium" style={{ background: data.expenseKind === 'surplus' ? 'rgba(34,197,94,0.15)' : '#18181f', border: `1px solid ${data.expenseKind === 'surplus' ? '#22c55e' : '#2a2a38'}`, color: data.expenseKind === 'surplus' ? '#22c55e' : '#9896b0' }}>
+                  Ajuste por sobrante
+                </button>
               </div>
             )}
 

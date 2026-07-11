@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import BalanceCard from './BalanceCard';
-import MiniChart from './MiniChart';
 import RecentTransactions from './RecentTransactions';
 import VoiceButton from '../input/VoiceButton';
 import TextInput from '../input/TextInput';
@@ -12,7 +11,6 @@ interface StatsData {
   income: number;
   expenses: number;
   wallets: any[];
-  byDay: any[];
 }
 
 export default function HomeScreen() {
@@ -100,8 +98,6 @@ export default function HomeScreen() {
         ) : (
           <>
             {stats && <BalanceCard totalBalance={stats.totalBalance} income={stats.income} expenses={stats.expenses} wallets={stats.wallets} onRefresh={fetchAll} />}
-            {stats && <MiniChart data={stats.byDay} />}
-            <RecentTransactions transactions={transactions} onDelete={handleDelete} />
           </>
         )}
 
@@ -118,6 +114,8 @@ export default function HomeScreen() {
           <TextInput onSubmit={handleTextOrVoice} disabled={interpreting} />
           {interpreting && <p className="mt-3 text-xs text-center" style={{ color: '#7c6af7' }}>Analizando...</p>}
         </div>
+
+        {!loading && <RecentTransactions transactions={transactions} onDelete={handleDelete} />}
       </div>
 
       <AIModal isOpen={modalOpen} interpretation={interpretation} wallets={wallets} onConfirm={handleConfirm} onCancel={() => { setModalOpen(false); setInterpretation(null); }} />

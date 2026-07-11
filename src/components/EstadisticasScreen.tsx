@@ -80,7 +80,7 @@ export default function EstadisticasScreen() {
 
   const pieData = stats?.byExpenseKind
     ?.filter((c: any) => c.total > 0)
-    ?.map((c: any) => ({ name: c.expenseKind === 'fixed' ? 'Fijos' : c.expenseKind === 'variable' ? 'Variables' : c.expenseKind === 'mismatch' ? 'Descuadres' : 'Sin clasificar', value: c.total, color: c.expenseKind === 'fixed' ? '#3b82f6' : c.expenseKind === 'variable' ? '#ec4899' : c.expenseKind === 'mismatch' ? '#f59e0b' : '#7c6af7' }))
+    ?.map((c: any) => ({ name: c.expenseKind === 'fixed' ? 'Fijos' : c.expenseKind === 'variable' ? 'Variables' : c.expenseKind === 'mismatch' ? 'Ajustes por faltante' : 'Sin clasificar', value: c.total, color: c.expenseKind === 'fixed' ? '#3b82f6' : c.expenseKind === 'variable' ? '#ec4899' : c.expenseKind === 'mismatch' ? '#f59e0b' : '#7c6af7' }))
     ?? [];
 
   const barData = stats?.byDay?.map((d: any) => ({
@@ -123,6 +123,26 @@ export default function EstadisticasScreen() {
                 delay={i * 0.1}
               />
             ))}
+
+            {stats.adjustments?.length > 0 && (
+              <div className="col-span-2 rounded-2xl p-4" style={{ background: '#111118', border: '1px solid #1e1e28' }}>
+                <p className="text-xs font-semibold mb-3" style={{ color: '#9896b0' }}>Ajustes de saldo</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { kind: 'mismatch', label: 'Faltante', sign: '-', color: '#f59e0b' },
+                    { kind: 'surplus', label: 'Sobrante', sign: '+', color: '#22c55e' },
+                  ].map(item => {
+                    const adjustment = stats.adjustments.find((entry: any) => entry.kind === item.kind);
+                    return (
+                      <div key={item.kind}>
+                        <p className="text-xs" style={{ color: '#5a5870' }}>{item.label}</p>
+                        <p className="text-sm font-bold mt-1" style={{ color: item.color }}>{item.sign}{formatFull(adjustment?.total ?? 0)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -174,6 +194,17 @@ export default function EstadisticasScreen() {
                       <Tooltip content={<CustomPieTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
+                  <div className="flex flex-col gap-2 mt-2" aria-label="Leyenda de distribución de gastos">
+                    {pieData.map((entry: any) => (
+                      <div key={entry.name} className="flex items-center justify-between gap-3 text-xs">
+                        <span className="flex items-center gap-2 min-w-0" style={{ color: '#9896b0' }}>
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: entry.color }} aria-hidden="true" />
+                          <span className="truncate">{entry.name}</span>
+                        </span>
+                        <span className="font-semibold" style={{ color: '#f1f0ff' }}>{formatFull(entry.value)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -186,7 +217,7 @@ export default function EstadisticasScreen() {
               ) : (
                 stats?.byExpenseKind?.map((cat: any, i: number) => {
                   const pct = stats.expenses > 0 ? (cat.total / stats.expenses * 100) : 0;
-                  const label = cat.expenseKind === 'fixed' ? 'Fijos' : cat.expenseKind === 'variable' ? 'Variables' : cat.expenseKind === 'mismatch' ? 'Descuadres' : 'Sin clasificar';
+                  const label = cat.expenseKind === 'fixed' ? 'Fijos' : cat.expenseKind === 'variable' ? 'Variables' : cat.expenseKind === 'mismatch' ? 'Ajustes por faltante' : 'Sin clasificar';
                   const color = cat.expenseKind === 'fixed' ? '#3b82f6' : cat.expenseKind === 'variable' ? '#ec4899' : cat.expenseKind === 'mismatch' ? '#f59e0b' : '#7c6af7';
                   return (
                     <motion.div key={cat.expenseKind ?? i}
