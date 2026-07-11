@@ -1,13 +1,10 @@
 import type { APIRoute } from 'astro';
 import { getDb, schema } from '../../lib/db';
 import { eq, desc, and, gte, lte, or, sql } from 'drizzle-orm';
-import { ensureWalletColumns } from '../../lib/walletColumns';
-import { chargeDueSubscriptions, today } from '../../lib/subscriptions';
+import { today } from '../../lib/subscriptions';
 
 export const GET: APIRoute = async ({ url }) => {
   try {
-    await ensureWalletColumns();
-    await chargeDueSubscriptions();
     const db = getDb();
     const searchParams = url.searchParams;
     const limit = parseInt(searchParams.get('limit') ?? '50');
@@ -83,7 +80,6 @@ async function applyToWallets(db: ReturnType<typeof getDb>, tx: { type: string; 
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    await ensureWalletColumns();
     const db = getDb();
     const body = await request.json();
     const { type, amount, currency, expenseKind, walletId, walletDestinationId, description, aiGenerated, rawInput, installments, interestApplied, date } = body;
@@ -124,7 +120,6 @@ export const POST: APIRoute = async ({ request }) => {
 
 export const PUT: APIRoute = async ({ request }) => {
   try {
-    await ensureWalletColumns();
     const db = getDb();
     const body = await request.json();
     const id = parseInt(body.id);
@@ -169,7 +164,6 @@ export const PUT: APIRoute = async ({ request }) => {
 
 export const DELETE: APIRoute = async ({ url }) => {
   try {
-    await ensureWalletColumns();
     const db = getDb();
     const id = url.searchParams.get('id');
     if (!id) return new Response(JSON.stringify({ error: 'id requerido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });

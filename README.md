@@ -13,7 +13,11 @@ App Astro SSR con React islands para registrar gastos, revisar balances por bill
 
 ## Suscripciones
 
-Las suscripciones se crean desde el menu lateral. Cada una guarda nombre, dia de cobro del 1 al 31, valor y billetera. Al consultar `/api/subscriptions`, la app registra los cobros vencidos como gastos y actualiza la proxima fecha mensual.
+Las suscripciones se crean desde el menu lateral. Cada una guarda nombre, dia de cobro del 1 al 31, valor y billetera. Los endpoints GET son de solo lectura; los cobros vencidos se procesan mediante `POST /api/subscriptions/process` con `SUBSCRIPTIONS_PROCESS_SECRET` o `CRON_SECRET`.
+
+El procesamiento registra cada fecha programada en un ledger idempotente y procesa hasta 24 periodos por suscripcion en cada ejecucion. Las billeteras archivadas o inexistentes se reportan sin crear cobros ni avanzar la fecha. Los balances negativos en billeteras no crediticias estan permitidos intencionalmente.
+
+Eliminar una transaccion automatica anula definitivamente ese periodo: el ledger se conserva y evita que el cobro se regenere.
 
 ## Comandos
 

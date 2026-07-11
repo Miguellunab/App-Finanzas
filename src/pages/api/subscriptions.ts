@@ -1,15 +1,10 @@
 import type { APIRoute } from 'astro';
 import { getDb, schema } from '../../lib/db';
 import { eq } from 'drizzle-orm';
-import { ensureWalletColumns } from '../../lib/walletColumns';
-import { ensureSubscriptionColumns } from '../../lib/subscriptionColumns';
-import { chargeDueSubscriptions, nextChargeDateForDay } from '../../lib/subscriptions';
+import { nextChargeDateForDay } from '../../lib/subscriptions';
 
 export const GET: APIRoute = async () => {
   try {
-    await ensureWalletColumns();
-    await ensureSubscriptionColumns();
-    await chargeDueSubscriptions();
     const data = await getDb()
       .select({
         id: schema.subscriptions.id,
@@ -36,8 +31,6 @@ export const GET: APIRoute = async () => {
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    await ensureWalletColumns();
-    await ensureSubscriptionColumns();
     const body = await request.json();
     const amount = parseFloat(body.amount);
     const walletId = parseInt(body.walletId);
@@ -64,7 +57,6 @@ export const POST: APIRoute = async ({ request }) => {
 
 export const DELETE: APIRoute = async ({ url }) => {
   try {
-    await ensureSubscriptionColumns();
     const id = url.searchParams.get('id');
     if (!id) return new Response(JSON.stringify({ error: 'id requerido' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     await getDb().update(schema.subscriptions).set({ isArchived: true }).where(eq(schema.subscriptions.id, parseInt(id)));

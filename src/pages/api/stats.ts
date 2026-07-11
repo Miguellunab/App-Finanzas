@@ -3,13 +3,10 @@ import { getDb, schema } from '../../lib/db';
 import { eq, sql, gte, lte, and, or } from 'drizzle-orm';
 import { getGroq, MODELS, STATS_SYSTEM_PROMPT } from '../../lib/groq';
 import { getCurrentMonthRange } from '../../lib/utils';
-import { ensureWalletColumns } from '../../lib/walletColumns';
-import { chargeDueSubscriptions, today } from '../../lib/subscriptions';
+import { today } from '../../lib/subscriptions';
 
 export const GET: APIRoute = async ({ url }) => {
   try {
-    await ensureWalletColumns();
-    await chargeDueSubscriptions();
     const db = getDb();
     const searchParams = url.searchParams;
     const period = searchParams.get('period') ?? 'month'; // month | all
@@ -32,7 +29,7 @@ export const GET: APIRoute = async ({ url }) => {
     const dateFilter = dateConditions.length > 0 ? and(...dateConditions) : undefined;
 
     // Totales del período
-    const totals = await db.select({
+    const totalsQuery = db.select({
       type: schema.transactions.type,
       total: sql<number>`COALESCE(SUM(${schema.transactions.amount}), 0)`,
       count: sql<number>`COUNT(*)::int`,
@@ -41,15 +38,11 @@ export const GET: APIRoute = async ({ url }) => {
     .where(dateFilter)
     .groupBy(schema.transactions.type);
 
-    const income = totals.find(t => t.type === 'income')?.total ?? 0;
-    const expenses = totals.find(t => t.type === 'expense')?.total ?? 0;
-    const transfers = totals.find(t => t.type === 'transfer')?.total ?? 0;
-
     // Gastos por tipo
     const expenseConditions = [eq(schema.transactions.type, 'expense')];
     if (dateFilter) expenseConditions.push(dateFilter);
 
-    const byExpenseKind = await db.select({
+    const byExpenseKindQuery = db.select({
       expenseKind: schema.transactions.expenseKind,
       total: sql<number>`COALESCE(SUM(${schema.transactions.amount}), 0)`,
       count: sql<number>`COUNT(*)::int`,
@@ -64,7 +57,7 @@ export const GET: APIRoute = async ({ url }) => {
       and(eq(schema.transactions.type, 'income'), eq(schema.transactions.expenseKind, 'surplus')),
     )];
     if (dateFilter) adjustmentConditions.push(dateFilter);
-    const adjustments = await db.select({
+    const adjustmentsQuery = db.select({
       kind: schema.transactions.expenseKind,
       total: sql<number>`COALESCE(SUM(${schema.transactions.amount}), 0)`,
       count: sql<number>`COUNT(*)::int`,
@@ -75,7 +68,7 @@ export const GET: APIRoute = async ({ url }) => {
 
     // Gastos por día (últimos 30 días)
     const last30Days = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
-    const byDay = await db.select({
+    const byDayQuery = db.select({
       date: schema.transactions.date,
       income: sql<number>`COALESCE(SUM(CASE WHEN ${schema.transactions.type}='income' THEN ${schema.transactions.amount} ELSE 0 END), 0)`,
       expense: sql<number>`COALESCE(SUM(CASE WHEN ${schema.transactions.type}='expense' THEN ${schema.transactions.amount} ELSE 0 END), 0)`,
@@ -86,7 +79,7 @@ export const GET: APIRoute = async ({ url }) => {
     .orderBy(schema.transactions.date);
 
     // Balance total de todas las wallets
-    const walletBalances = await db.select({
+    const walletBalancesQuery = db.select({
       id: schema.wallets.id,
       name: schema.wallets.name,
       emoji: schema.wallets.emoji,
@@ -108,7 +101,7 @@ export const GET: APIRoute = async ({ url }) => {
     .from(schema.wallets)
     .where(eq(schema.wallets.isArchived, false));
 
-    const creditTxs = await db.select({
+    const creditTxsQuery = db.select({
       walletId: schema.transactions.walletId,
       amount: schema.transactions.amount,
       installments: schema.transactions.installments,
@@ -119,6 +112,19 @@ export const GET: APIRoute = async ({ url }) => {
     .from(schema.transactions)
     .leftJoin(schema.wallets, eq(schema.transactions.walletId, schema.wallets.id))
     .where(and(eq(schema.transactions.type, 'expense'), eq(schema.wallets.type, 'credit'), ...(dateFilter ? [dateFilter] : [])));
+
+    const [totals, byExpenseKind, adjustments, byDay, walletBalances, creditTxs] = await Promise.all([
+      totalsQuery,
+      byExpenseKindQuery,
+      adjustmentsQuery,
+      byDayQuery,
+      walletBalancesQuery,
+      creditTxsQuery,
+    ]);
+
+    const income = totals.find(t => t.type === 'income')?.total ?? 0;
+    const expenses = totals.find(t => t.type === 'expense')?.total ?? 0;
+    const transfers = totals.find(t => t.type === 'transfer')?.total ?? 0;
 
     const debtByWallet = new Map<number, number>();
     creditTxs.forEach(t => {

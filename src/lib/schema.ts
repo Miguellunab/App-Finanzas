@@ -1,4 +1,4 @@
-import { pgTable, text, integer, real, boolean, timestamp, date } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, real, boolean, timestamp, primaryKey, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // Billeteras (Efectivo, Tarjeta, etc.)
@@ -68,6 +68,16 @@ export const subscriptions = pgTable('subscriptions', {
   isArchived: boolean('is_archived').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+export const subscriptionCharges = pgTable('subscription_charges', {
+  subscriptionId: integer('subscription_id').notNull().references(() => subscriptions.id),
+  chargeDate: text('charge_date').notNull(),
+  transactionId: integer('transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.subscriptionId, table.chargeDate], name: 'subscription_charges_subscription_date_pk' }),
+  unique('subscription_charges_transaction_id_unique').on(table.transactionId),
+]);
 
 // Tipos exportados
 export type Wallet = typeof wallets.$inferSelect;

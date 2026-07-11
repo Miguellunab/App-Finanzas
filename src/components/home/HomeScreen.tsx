@@ -30,15 +30,14 @@ export default function HomeScreen() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [statsRes, txRes, walletsRes] = await Promise.all([
+      const [statsRes, txRes] = await Promise.all([
         fetch('/api/stats?period=all'),
         fetch('/api/transactions?limit=10'),
-        fetch('/api/wallets'),
       ]);
-      const [statsData, txData, walletsData] = await Promise.all([statsRes.json(), txRes.json(), walletsRes.json()]);
+      const [statsData, txData] = await Promise.all([statsRes.json(), txRes.json()]);
       setStats(statsData.data);
       setTransactions(txData.data ?? []);
-      setWallets(walletsData.data ?? []);
+      setWallets(statsData.data?.wallets ?? []);
     } catch {
       showToast('Error al cargar datos', 'error');
     } finally {
