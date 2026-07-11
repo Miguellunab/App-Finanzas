@@ -37,7 +37,7 @@ export default function FloatingNav({ currentPath }: { currentPath: string }) {
         {navItems.map((item) => {
           const active = activePath === item.href || (item.href !== '/' && activePath.startsWith(item.href));
           return (
-            <a key={item.href} href={item.href} data-astro-prefetch="viewport" aria-label={item.label} aria-current={active ? 'page' : undefined} onPointerDown={() => setActivePath(item.href)} onClick={() => setActivePath(item.href)} className="relative p-3 rounded-2xl flex items-center justify-center no-underline" style={{ color: active ? item.color : '#5a5870', background: active ? `${item.color}20` : 'transparent', border: active ? `1px solid ${item.color}40` : '1px solid transparent' }}>
+            <a key={item.href} href={item.href} data-astro-prefetch="load" aria-label={item.label} aria-current={active ? 'page' : undefined} onPointerDown={() => setActivePath(item.href)} onClick={() => setActivePath(item.href)} className="relative p-3 rounded-2xl flex items-center justify-center no-underline" style={{ color: active ? item.color : '#5a5870', background: active ? `${item.color}20` : 'transparent', border: active ? `1px solid ${item.color}40` : '1px solid transparent' }}>
               <item.icon />
             </a>
           );
