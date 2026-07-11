@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { navigate } from 'astro:transitions/client';
 import { walletLogo } from '../../lib/utils';
 
 function formatCOP(n: number, currency = 'COP') {
@@ -49,7 +50,7 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
   };
 
   const openHistory = (id: number) => {
-    window.location.href = `/historial?walletId=${id}`;
+    navigate(`/historial?walletId=${id}`);
   };
 
   return (
