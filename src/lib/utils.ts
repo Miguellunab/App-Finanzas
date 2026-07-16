@@ -76,14 +76,14 @@ export function formatDate(dateStr: string): string {
   return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// Obtener inicio y fin del mes actual
-export function getCurrentMonthRange(): { start: string; end: string } {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+// Obtener el ciclo financiero actual: del día 20 al 19 del mes siguiente
+export function getCurrentMonthRange(currentDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date())): { start: string; end: string } {
+  const [year, month, day] = currentDate.split('-').map(Number);
+  const start = new Date(Date.UTC(year, month - (day >= 20 ? 1 : 2), 20));
+  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 19));
   return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0],
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
   };
 }
 

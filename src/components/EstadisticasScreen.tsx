@@ -71,7 +71,7 @@ export default function EstadisticasScreen() {
             <button key={p} onClick={() => setPeriod(p)}
               className="px-4 py-1.5 rounded-full text-xs font-medium transition-all"
               style={{ background: period === p ? '#7c6af7' : '#18181f', color: period === p ? 'white' : '#9896b0', border: `1px solid ${period === p ? 'transparent' : '#2a2a38'}`, cursor: 'pointer' }}>
-              {p === 'month' ? 'Este mes' : 'Histórico'}
+              {p === 'month' ? 'Ciclo actual (20–19)' : 'Histórico'}
             </button>
           ))}
         </div>

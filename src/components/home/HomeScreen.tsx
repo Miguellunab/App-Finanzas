@@ -31,7 +31,7 @@ export default function HomeScreen() {
   const fetchAll = useCallback(async () => {
     try {
       const [statsRes, txRes] = await Promise.all([
-        fetch('/api/stats?period=all'),
+        fetch('/api/stats?period=month'),
         fetch('/api/transactions?limit=10'),
       ]);
       const [statsData, txData] = await Promise.all([statsRes.json(), txRes.json()]);

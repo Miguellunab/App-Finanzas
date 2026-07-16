@@ -66,7 +66,7 @@ export const GET: APIRoute = async ({ url }) => {
     .where(and(...adjustmentConditions))
     .groupBy(schema.transactions.expenseKind);
 
-    // Gastos por día (últimos 30 días)
+    // Gastos por día del período (o últimos 30 días en el histórico)
     const last30Days = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
     const byDayQuery = db.select({
       date: schema.transactions.date,
@@ -74,7 +74,7 @@ export const GET: APIRoute = async ({ url }) => {
       expense: sql<number>`COALESCE(SUM(CASE WHEN ${schema.transactions.type}='expense' THEN ${schema.transactions.amount} ELSE 0 END), 0)`,
     })
     .from(schema.transactions)
-    .where(gte(schema.transactions.date, last30Days))
+    .where(dateFilter ?? gte(schema.transactions.date, last30Days))
     .groupBy(schema.transactions.date)
     .orderBy(schema.transactions.date);
 
