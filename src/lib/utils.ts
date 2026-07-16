@@ -18,6 +18,45 @@ export function parseNumberInput(value: string | number): number {
   return Number(String(value).replace(/\./g, '')) || 0;
 }
 
+export function creditInstallment({
+  amount,
+  installments,
+  installmentNumber,
+  interestRate,
+  interestPeriod,
+  interestApplied,
+  interestFromFirstInstallment,
+}: {
+  amount: number;
+  installments: number;
+  installmentNumber: number;
+  interestRate: number;
+  interestPeriod: string;
+  interestApplied: boolean;
+  interestFromFirstInstallment: boolean;
+}) {
+  const count = Math.max(1, Math.trunc(installments));
+  const number = Math.trunc(installmentNumber);
+  if (number < 1 || number > count || amount <= 0) return { principal: 0, interest: 0, total: 0 };
+
+  const principal = amount / count;
+  const pendingPrincipal = amount - principal * (number - 1);
+  const monthlyRate = interestPeriod === 'MV'
+    ? interestRate / 100
+    : Math.pow(1 + interestRate / 100, 1 / 12) - 1;
+  const interest = interestApplied && (interestFromFirstInstallment || number > 1)
+    ? pendingPrincipal * monthlyRate
+    : 0;
+
+  return { principal, interest, total: principal + interest };
+}
+
+export function installmentNumberForMonth(purchaseDate: string, currentDate: string) {
+  const [purchaseYear, purchaseMonth] = purchaseDate.split('-').map(Number);
+  const [currentYear, currentMonth] = currentDate.split('-').map(Number);
+  return (currentYear - purchaseYear) * 12 + currentMonth - purchaseMonth + 1;
+}
+
 export const WALLET_LOGOS = [
   { key: 'bancolombia', src: '/logos/bancolombia.png' },
   { key: 'littio', src: '/logos/littio.png' },

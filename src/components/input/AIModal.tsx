@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { formatNumberInput, parseNumberInput, walletLogo } from '../../lib/utils';
+import { creditInstallment, formatNumberInput, parseNumberInput, walletLogo } from '../../lib/utils';
 
 interface AIInterpretation {
   type: 'income' | 'expense' | 'transfer';
@@ -44,13 +44,13 @@ export default function AIModal({ interpretation, wallets, onConfirm, onCancel, 
   const [editedData, setEditedData] = useState<AIInterpretation | null>(null);
   const [loading, setLoading] = useState(false);
   const [installments, setInstallments] = useState(1);
-  const [interestApplied, setInterestApplied] = useState(false);
+  const [interestApplied, setInterestApplied] = useState(true);
   const data = editedData ?? interpretation;
 
   useEffect(() => {
     setEditedData(null);
     setInstallments(1);
-    setInterestApplied(false);
+    setInterestApplied(true);
   }, [interpretation]);
 
   if (!isOpen || !data) return null;
@@ -58,14 +58,15 @@ export default function AIModal({ interpretation, wallets, onConfirm, onCancel, 
   const needsNewWallet = data.wallet && !data.wallet.exists;
   const selectedWallet = wallets.find(w => w.id === data.wallet?.id);
   const isCreditExpense = selectedWallet?.type === 'credit' && data.type === 'expense';
-  const monthlyRate = selectedWallet?.interestPeriod === 'MV'
-    ? (selectedWallet.interestRate ?? 0) / 100
-    : Math.pow(1 + (selectedWallet?.interestRate ?? 0) / 100, 1 / 12) - 1;
-  const installmentEstimate = installments > 1
-    ? interestApplied
-      ? data.amount * monthlyRate / (1 - Math.pow(1 + monthlyRate, -installments))
-      : data.amount / installments
-    : data.amount;
+  const installmentEstimate = creditInstallment({
+    amount: data.amount,
+    installments,
+    installmentNumber: 1,
+    interestRate: selectedWallet?.interestRate ?? 0,
+    interestPeriod: selectedWallet?.interestPeriod ?? 'EA',
+    interestApplied,
+    interestFromFirstInstallment: selectedWallet?.interestFromFirstInstallment === true,
+  });
   const update = (patch: Partial<AIInterpretation>) => setEditedData(prev => ({ ...(prev ?? interpretation!), ...patch }));
 
   const handleConfirm = async () => {
@@ -198,18 +199,33 @@ export default function AIModal({ interpretation, wallets, onConfirm, onCancel, 
             {isCreditExpense && (
               <div className="rounded-xl p-3" style={{ background: '#18181f', border: '1px solid #2a2a38' }}>
                 <p className="text-xs font-medium mb-2" style={{ color: '#9896b0' }}>Compra con tarjeta de credito</p>
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-end">
                   <div className="flex-1">
                     <label htmlFor="ai-installments" className="text-xs block mb-1" style={{ color: '#9896b0' }}>Cuotas</label>
                     <input id="ai-installments" type="number" min="1" value={installments} onChange={e => setInstallments(Math.max(1, parseInt(e.target.value || '1')))} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ background: '#111118', border: '1px solid #2a2a38', color: '#f1f0ff' }} />
                   </div>
-                  <label className="flex items-end gap-2 pb-2 text-xs" style={{ color: '#9896b0' }}>
-                    <input type="checkbox" checked={interestApplied || selectedWallet?.interestFromFirstInstallment === true} onChange={e => setInterestApplied(e.target.checked)} />
-                    Cobra interes
-                  </label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={interestApplied}
+                    onClick={() => setInterestApplied(value => !value)}
+                    className="min-h-10 rounded-xl px-3 py-2 text-left transition-colors"
+                    style={{ background: interestApplied ? 'rgba(124,106,247,0.18)' : 'rgba(34,197,94,0.1)', border: `1px solid ${interestApplied ? '#7c6af7' : 'rgba(34,197,94,0.35)'}`, color: interestApplied ? '#d4d2f0' : '#22c55e' }}
+                  >
+                    <span className="block text-[10px] uppercase tracking-wide" style={{ color: interestApplied ? '#9896b0' : '#22c55e' }}>Intereses</span>
+                    <span className="block text-xs font-semibold">{interestApplied ? 'Activos' : 'Promocion sin interes'}</span>
+                  </button>
                 </div>
+                <p className="text-[11px] mt-2" style={{ color: '#9896b0' }}>
+                  {interestApplied
+                    ? selectedWallet?.interestFromFirstInstallment
+                      ? 'Esta tarjeta cobra intereses desde la primera cuota.'
+                      : 'La primera cuota no cobra intereses; comienzan en la segunda.'
+                    : 'Esta compra se guardara como promocion sin intereses.'}
+                </p>
                 <p className="text-xs mt-2" style={{ color: '#7c6af7' }}>
-                  Estimado: {new Intl.NumberFormat('es-CO', { style: 'currency', currency: data.currency, maximumFractionDigits: 0 }).format(installmentEstimate)} x {installments}
+                  Cuota 1: {new Intl.NumberFormat('es-CO', { style: 'currency', currency: data.currency, maximumFractionDigits: 0 }).format(installmentEstimate.principal)} capital
+                  {installmentEstimate.interest > 0 && <> · {new Intl.NumberFormat('es-CO', { style: 'currency', currency: data.currency, maximumFractionDigits: 0 }).format(installmentEstimate.interest)} intereses</>}
                 </p>
               </div>
             )}

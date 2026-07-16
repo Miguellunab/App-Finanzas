@@ -14,6 +14,8 @@ interface Wallet {
   balance: number;
   creditLimit?: number;
   monthlyDebt?: number;
+  monthlyPrincipal?: number;
+  monthlyInterest?: number;
   currency: string;
   includeInBalance?: boolean;
   type?: string;
@@ -33,7 +35,6 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
   const [showHidden, setShowHidden] = useState(false);
   const visibleWallets = wallets.filter(w => w.includeInBalance !== false);
   const hiddenWallets = wallets.filter(w => w.includeInBalance === false);
-  const creditDebt = (w: Wallet) => w.monthlyDebt || w.balance;
 
   const toggleBalance = async (w: Wallet) => {
     await fetch('/api/wallets', {
@@ -90,7 +91,12 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold whitespace-nowrap" style={{ color: w.type === 'credit' ? '#f43f5e' : w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{formatCOP(w.type === 'credit' ? creditDebt(w) : w.balance, w.currency)}</span>
+                {w.type === 'credit' ? (
+                  <div className="text-right whitespace-nowrap">
+                    <span className="text-sm font-semibold block" style={{ color: '#f43f5e' }}>{formatCOP(w.monthlyPrincipal || w.balance, w.currency)}</span>
+                    <span className="text-[10px] block" style={{ color: '#9896b0' }}>capital · {w.monthlyInterest ? `${formatCOP(w.monthlyInterest, w.currency)} intereses` : 'sin intereses'}</span>
+                  </div>
+                ) : <span className="text-sm font-semibold whitespace-nowrap" style={{ color: w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{formatCOP(w.balance, w.currency)}</span>}
                 {(w.type === 'debit' || w.type === 'credit') && <button onClick={(e) => { e.stopPropagation(); toggleBalance(w); }} className="text-[10px] px-2 py-1 rounded-lg" style={{ background: visible ? 'rgba(34,197,94,0.12)' : 'rgba(244,63,94,0.12)', border: '1px solid #2a2a38', color: visible ? '#22c55e' : '#f43f5e' }}>
                   {visible ? 'Ocultar' : 'Mostrar'}
                 </button>}
@@ -115,7 +121,12 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold whitespace-nowrap" style={{ color: w.type === 'credit' ? '#f43f5e' : w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{formatCOP(w.type === 'credit' ? creditDebt(w) : w.balance, w.currency)}</span>
+                  {w.type === 'credit' ? (
+                    <div className="text-right whitespace-nowrap">
+                      <span className="text-sm font-semibold block" style={{ color: '#f43f5e' }}>{formatCOP(w.monthlyPrincipal || w.balance, w.currency)}</span>
+                      <span className="text-[10px] block" style={{ color: '#9896b0' }}>capital · {w.monthlyInterest ? `${formatCOP(w.monthlyInterest, w.currency)} intereses` : 'sin intereses'}</span>
+                    </div>
+                  ) : <span className="text-sm font-semibold whitespace-nowrap" style={{ color: w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{formatCOP(w.balance, w.currency)}</span>}
                   {(w.type === 'debit' || w.type === 'credit') && <button onClick={(e) => { e.stopPropagation(); toggleBalance(w); }} className="text-[10px] px-2 py-1 rounded-lg" style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid #2a2a38', color: '#f43f5e' }}>
                     Mostrar
                   </button>}
