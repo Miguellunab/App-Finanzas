@@ -79,6 +79,19 @@ export const subscriptionCharges = pgTable('subscription_charges', {
   unique('subscription_charges_transaction_id_unique').on(table.transactionId),
 ]);
 
+export const cardPaymentPeriods = pgTable('card_payment_periods', {
+  walletId: integer('wallet_id').notNull().references(() => wallets.id),
+  periodStart: text('period_start').notNull(),
+  periodEnd: text('period_end').notNull(),
+  status: text('status').notNull(),
+  amount: real('amount'),
+  sourceWalletId: integer('source_wallet_id').references(() => wallets.id),
+  transactionId: integer('transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.walletId, table.periodStart, table.periodEnd], name: 'card_payment_periods_wallet_period_pk' }),
+]);
+
 // Tipos exportados
 export type Wallet = typeof wallets.$inferSelect;
 export type NewWallet = typeof wallets.$inferInsert;

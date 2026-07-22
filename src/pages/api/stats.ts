@@ -2,7 +2,8 @@ import type { APIRoute } from 'astro';
 import { getDb, schema } from '../../lib/db';
 import { eq, sql, gte, lte, and, or } from 'drizzle-orm';
 import { getGroq, MODELS, STATS_SYSTEM_PROMPT } from '../../lib/groq';
-import { creditInstallment, getCurrentMonthRange, installmentNumberForMonth } from '../../lib/utils';
+import { getCurrentMonthRange } from '../../lib/utils';
+import { calculateCurrentCreditDebts } from '../../lib/payments';
 import { today } from '../../lib/subscriptions';
 
 export const GET: APIRoute = async ({ url }) => {
@@ -101,6 +102,15 @@ export const GET: APIRoute = async ({ url }) => {
     .from(schema.wallets)
     .where(eq(schema.wallets.isArchived, false));
 
+    const creditWalletsQuery = db.select({
+      id: schema.wallets.id,
+      interestRate: schema.wallets.interestRate,
+      interestPeriod: schema.wallets.interestPeriod,
+      interestFromFirstInstallment: schema.wallets.interestFromFirstInstallment,
+    })
+    .from(schema.wallets)
+    .where(eq(schema.wallets.type, 'credit'));
+
     const creditTxsQuery = db.select({
       walletId: schema.transactions.walletId,
       amount: schema.transactions.amount,
@@ -115,12 +125,13 @@ export const GET: APIRoute = async ({ url }) => {
     .leftJoin(schema.wallets, eq(schema.transactions.walletId, schema.wallets.id))
     .where(and(eq(schema.transactions.type, 'expense'), eq(schema.wallets.type, 'credit')));
 
-    const [totals, byExpenseKind, adjustments, byDay, walletBalances, creditTxs] = await Promise.all([
+    const [totals, byExpenseKind, adjustments, byDay, walletBalances, creditWallets, creditTxs] = await Promise.all([
       totalsQuery,
       byExpenseKindQuery,
       adjustmentsQuery,
       byDayQuery,
       walletBalancesQuery,
+      creditWalletsQuery,
       creditTxsQuery,
     ]);
 
@@ -128,21 +139,13 @@ export const GET: APIRoute = async ({ url }) => {
     const expenses = totals.find(t => t.type === 'expense')?.total ?? 0;
     const transfers = totals.find(t => t.type === 'transfer')?.total ?? 0;
 
-    const debtByWallet = new Map<number, { principal: number; interest: number }>();
     const currentDate = today();
-    creditTxs.forEach(t => {
-      const installment = creditInstallment({
-        amount: t.amount,
-        installments: t.installments,
-        installmentNumber: installmentNumberForMonth(t.date, currentDate),
-        interestRate: t.interestRate ?? 0,
-        interestPeriod: t.interestPeriod ?? 'EA',
-        interestApplied: t.interestApplied,
-        interestFromFirstInstallment: t.interestFromFirstInstallment ?? false,
-      });
-      const debt = debtByWallet.get(t.walletId) ?? { principal: 0, interest: 0 };
-      debtByWallet.set(t.walletId, { principal: debt.principal + installment.principal, interest: debt.interest + installment.interest });
-    });
+    const creditWalletSettings = new Map(creditWallets.map(wallet => [wallet.id, {
+      interestRate: wallet.interestRate,
+      interestPeriod: wallet.interestPeriod,
+      interestFromFirstInstallment: wallet.interestFromFirstInstallment,
+    }]));
+    const debtByWallet = calculateCurrentCreditDebts(creditTxs, currentDate, creditWalletSettings);
     const wallets = walletBalances.map(w => {
       const debt = w.balance > 0 ? debtByWallet.get(w.id) : undefined;
       const monthlyPrincipal = debt?.principal ?? 0;

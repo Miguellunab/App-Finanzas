@@ -21,7 +21,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     const result = await processDueSubscriptions();
-    return new Response(JSON.stringify({ success: true, ...result }), {
+    return new Response(JSON.stringify({ success: true, automaticCharges: false, ...result }), {
       headers,
     });
   } catch (error) {

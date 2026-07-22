@@ -43,13 +43,13 @@ function WalletMark({ wallet }: { wallet: Wallet }) {
 export default function AIModal({ interpretation, wallets, onConfirm, onCancel, isOpen }: AIModalProps) {
   const [editedData, setEditedData] = useState<AIInterpretation | null>(null);
   const [loading, setLoading] = useState(false);
-  const [installments, setInstallments] = useState(1);
+  const [installmentsInput, setInstallmentsInput] = useState('1');
   const [interestApplied, setInterestApplied] = useState(true);
   const data = editedData ?? interpretation;
 
   useEffect(() => {
     setEditedData(null);
-    setInstallments(1);
+    setInstallmentsInput('1');
     setInterestApplied(true);
   }, [interpretation]);
 
@@ -58,6 +58,7 @@ export default function AIModal({ interpretation, wallets, onConfirm, onCancel, 
   const needsNewWallet = data.wallet && !data.wallet.exists;
   const selectedWallet = wallets.find(w => w.id === data.wallet?.id);
   const isCreditExpense = selectedWallet?.type === 'credit' && data.type === 'expense';
+  const installments = Math.max(1, parseInt(installmentsInput, 10) || 1);
   const installmentEstimate = creditInstallment({
     amount: data.amount,
     installments,
@@ -202,7 +203,11 @@ export default function AIModal({ interpretation, wallets, onConfirm, onCancel, 
                 <div className="flex gap-3 items-end">
                   <div className="flex-1">
                     <label htmlFor="ai-installments" className="text-xs block mb-1" style={{ color: '#9896b0' }}>Cuotas</label>
-                    <input id="ai-installments" type="number" min="1" value={installments} onChange={e => setInstallments(Math.max(1, parseInt(e.target.value || '1')))} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ background: '#111118', border: '1px solid #2a2a38', color: '#f1f0ff' }} />
+                    <div className="flex items-center gap-1">
+                      <button type="button" aria-label="Reducir cuotas" disabled={installments <= 1} onClick={() => setInstallmentsInput(String(Math.max(1, installments - 1)))} className="h-10 w-10 rounded-xl text-lg" style={{ background: '#111118', border: '1px solid #2a2a38', color: installments <= 1 ? '#4b4960' : '#f1f0ff' }}>−</button>
+                      <input id="ai-installments" type="text" inputMode="numeric" pattern="[0-9]*" value={installmentsInput} onFocus={e => e.currentTarget.select()} onChange={e => setInstallmentsInput(e.target.value.replace(/\D/g, ''))} onBlur={() => setInstallmentsInput(String(installments))} className="min-w-0 flex-1 rounded-xl px-3 py-2 text-center text-sm outline-none" style={{ background: '#111118', border: '1px solid #2a2a38', color: '#f1f0ff' }} />
+                      <button type="button" aria-label="Aumentar cuotas" onClick={() => setInstallmentsInput(String(installments + 1))} className="h-10 w-10 rounded-xl text-lg" style={{ background: '#111118', border: '1px solid #2a2a38', color: '#f1f0ff' }}>+</button>
+                    </div>
                   </div>
                   <button
                     type="button"

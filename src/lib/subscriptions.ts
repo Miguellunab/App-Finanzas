@@ -14,20 +14,22 @@ export function nextChargeDateForDay(day: number) {
   return new Date(base.getFullYear(), base.getMonth() + 1, Math.min(day, lastNextMonth)).toISOString().slice(0, 10);
 }
 
+export function nextChargeDateAfter(chargeDate: string, day: number) {
+  const base = new Date(`${chargeDate}T00:00:00Z`);
+  const nextMonth = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 1));
+  const lastDay = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth() + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth(), Math.min(day, lastDay))).toISOString().slice(0, 10);
+}
+
 export async function processDueSubscriptions() {
   const result = await getDb().execute<{
-    processed: number;
     pending: number;
-    skipped_archived: number;
-    orphaned: number;
-  }>(
-    sql`select * from public.process_due_subscriptions_detailed(${today()}::date)`,
-  );
+  }>(sql`select count(*)::int as pending from public.subscriptions where is_archived = false and next_charge_date <= ${today()}`);
   const row = result.rows[0];
   return {
-    processed: Number(row?.processed ?? 0),
+    processed: 0,
     pending: Number(row?.pending ?? 0),
-    skippedArchived: Number(row?.skipped_archived ?? 0),
-    orphaned: Number(row?.orphaned ?? 0),
+    skippedArchived: 0,
+    orphaned: 0,
   };
 }

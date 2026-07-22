@@ -9,15 +9,17 @@ App Astro SSR con React islands para registrar gastos, revisar balances por bill
 - Billeteras: cuentas, tarjetas, bolsillos y bovedas con logos y balance.
 - Categorias: categorias de ingresos/gastos.
 - Estadisticas: resumen visual de ingresos, gastos y distribucion.
-- Suscripciones: gastos fijos mensuales cobrados a una billetera por dia del mes.
+- Suscripciones: recordatorios de gastos fijos mensuales para registrar manualmente.
 
-## Suscripciones
+## Pagos semiautomaticos
 
-Las suscripciones se crean desde el menu lateral. Cada una guarda nombre, dia de cobro del 1 al 31, valor y billetera. Los endpoints GET son de solo lectura; los cobros vencidos se procesan mediante `POST /api/subscriptions/process` con `SUBSCRIPTIONS_PROCESS_SECRET` o `CRON_SECRET`.
+Las suscripciones se crean desde el menu lateral y funcionan como atajos: cuando llega su fecha aparecen en Inicio para registrar el pago, elegir la billetera de origen y ajustar el valor. `Cancelar` salta ese periodo sin crear un gasto.
 
-El procesamiento registra cada fecha programada en un ledger idempotente y procesa hasta 24 periodos por suscripcion en cada ejecucion. Las billeteras archivadas o inexistentes se reportan sin crear cobros ni avanzar la fecha. Los balances negativos en billeteras no crediticias estan permitidos intencionalmente.
+En Inicio tambien aparece una tarjeta para pagar tarjetas de credito durante su ventana entre corte y fecha limite. El pago se registra como transferencia desde la billetera elegida hacia la tarjeta y permite incluir tarifas adicionales. Cada periodo se guarda una sola vez en un ledger para evitar duplicados.
 
-Eliminar una transaccion automatica anula definitivamente ese periodo: el ledger se conserva y evita que el cobro se regenere.
+Los endpoints GET son de solo lectura y el antiguo `POST /api/subscriptions/process` ya no cobra automaticamente; solo reporta cuantos periodos siguen pendientes.
+
+Eliminar una transaccion vinculada a un pago no regenera el periodo: el ledger conserva que ya fue atendido.
 
 ## Comandos
 

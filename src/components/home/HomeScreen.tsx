@@ -5,6 +5,7 @@ import VoiceButton from '../input/VoiceButton';
 import TextInput from '../input/TextInput';
 import AIModal from '../input/AIModal';
 import AppShell from '../layout/AppShell';
+import PendingPayments from './PendingPayments';
 
 interface StatsData {
   totalBalance: number;
@@ -16,6 +17,7 @@ interface StatsData {
 export default function HomeScreen() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
   const [interpretation, setInterpretation] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -30,13 +32,15 @@ export default function HomeScreen() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [statsRes, txRes] = await Promise.all([
+      const [statsRes, txRes, paymentsRes] = await Promise.all([
         fetch('/api/stats?period=month'),
         fetch('/api/transactions?limit=10'),
+        fetch('/api/payments'),
       ]);
-      const [statsData, txData] = await Promise.all([statsRes.json(), txRes.json()]);
+      const [statsData, txData, paymentsData] = await Promise.all([statsRes.json(), txRes.json(), paymentsRes.json()]);
       setStats(statsData.data);
       setTransactions(txData.data ?? []);
+      setPendingPayments(paymentsData.data ?? []);
       setWallets(statsData.data?.wallets ?? []);
     } catch {
       showToast('Error al cargar datos', 'error');
@@ -97,6 +101,7 @@ export default function HomeScreen() {
         ) : (
           <>
             {stats && <BalanceCard totalBalance={stats.totalBalance} income={stats.income} expenses={stats.expenses} wallets={stats.wallets} onRefresh={fetchAll} />}
+            <PendingPayments payments={pendingPayments} wallets={wallets} onRefresh={fetchAll} onMessage={showToast} />
           </>
         )}
 

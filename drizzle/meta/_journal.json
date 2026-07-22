@@ -8,6 +8,13 @@
       "when": 1783760400000,
       "tag": "0000_safe_subscription_processing",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784678400000,
+      "tag": "0001_semiautomatic_payments",
+      "breakpoints": true
     }
   ]
 }
