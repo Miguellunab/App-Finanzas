@@ -1,10 +1,13 @@
 import type { APIRoute } from 'astro';
 import { getDb, schema } from '../../lib/db';
 import { eq, sql, gte, lte, and, or } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { getGroq, MODELS, STATS_SYSTEM_PROMPT } from '../../lib/groq';
-import { getCurrentMonthRange } from '../../lib/utils';
-import { calculateCurrentCreditDebts } from '../../lib/payments';
+import { creditInstallment, getCurrentMonthRange, installmentNumberForMonth } from '../../lib/utils';
+import { calculateCurrentCreditDebts, replaceCreditPurchasesWithInstallments } from '../../lib/payments';
 import { today } from '../../lib/subscriptions';
+
+const jsonHeaders = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
 
 export const GET: APIRoute = async ({ url }) => {
   try {
@@ -117,6 +120,7 @@ export const GET: APIRoute = async ({ url }) => {
       date: schema.transactions.date,
       installments: schema.transactions.installments,
       interestApplied: schema.transactions.interestApplied,
+      expenseKind: schema.transactions.expenseKind,
       interestRate: schema.wallets.interestRate,
       interestPeriod: schema.wallets.interestPeriod,
       interestFromFirstInstallment: schema.wallets.interestFromFirstInstallment,
@@ -125,7 +129,17 @@ export const GET: APIRoute = async ({ url }) => {
     .leftJoin(schema.wallets, eq(schema.transactions.walletId, schema.wallets.id))
     .where(and(eq(schema.transactions.type, 'expense'), eq(schema.wallets.type, 'credit')));
 
-    const [totals, byExpenseKind, adjustments, byDay, walletBalances, creditWallets, creditTxs] = await Promise.all([
+    const creditDestination = alias(schema.wallets, 'credit_payment_destination');
+    const creditPaymentsQuery = db.select({
+      walletId: schema.transactions.walletDestinationId,
+      amount: schema.transactions.amount,
+      date: schema.transactions.date,
+    })
+    .from(schema.transactions)
+    .innerJoin(creditDestination, eq(schema.transactions.walletDestinationId, creditDestination.id))
+    .where(and(eq(schema.transactions.type, 'transfer'), eq(creditDestination.type, 'credit')));
+
+    const [totals, byExpenseKind, adjustments, byDay, walletBalances, creditWallets, creditTxs, creditPayments] = await Promise.all([
       totalsQuery,
       byExpenseKindQuery,
       adjustmentsQuery,
@@ -133,10 +147,11 @@ export const GET: APIRoute = async ({ url }) => {
       walletBalancesQuery,
       creditWalletsQuery,
       creditTxsQuery,
+      creditPaymentsQuery,
     ]);
 
     const income = totals.find(t => t.type === 'income')?.total ?? 0;
-    const expenses = totals.find(t => t.type === 'expense')?.total ?? 0;
+    const rawExpenses = totals.find(t => t.type === 'expense')?.total ?? 0;
     const transfers = totals.find(t => t.type === 'transfer')?.total ?? 0;
 
     const currentDate = today();
@@ -145,14 +160,74 @@ export const GET: APIRoute = async ({ url }) => {
       interestPeriod: wallet.interestPeriod,
       interestFromFirstInstallment: wallet.interestFromFirstInstallment,
     }]));
-    const debtByWallet = calculateCurrentCreditDebts(creditTxs, currentDate, creditWalletSettings);
+    const scheduledCreditExpenses = creditTxs.flatMap(transaction => {
+      const wallet = creditWalletSettings.get(transaction.walletId);
+      if (!wallet) return [];
+      const installment = creditInstallment({
+        amount: transaction.amount,
+        installments: transaction.installments,
+        installmentNumber: installmentNumberForMonth(transaction.date, currentDate),
+        interestRate: wallet.interestRate,
+        interestPeriod: wallet.interestPeriod,
+        interestApplied: transaction.interestApplied,
+        interestFromFirstInstallment: wallet.interestFromFirstInstallment,
+      });
+      return installment.total > 0 ? [{ amount: installment.total, expenseKind: transaction.expenseKind }] : [];
+    });
+    const periodCreditExpenses = period === 'month'
+      ? creditTxs.filter(transaction => (!startDate || transaction.date >= startDate) && (!endDate || transaction.date <= endDate))
+      : [];
+    const expenses = period === 'month'
+      ? replaceCreditPurchasesWithInstallments(rawExpenses, periodCreditExpenses, scheduledCreditExpenses)
+      : rawExpenses;
+
+    const expenseKinds = new Map(byExpenseKind.map(entry => [entry.expenseKind, { ...entry }]));
+    if (period === 'month') {
+      for (const transaction of periodCreditExpenses) {
+        const entry = expenseKinds.get(transaction.expenseKind);
+        if (entry) {
+          entry.total -= transaction.amount;
+          entry.count -= 1;
+        }
+      }
+      for (const installment of scheduledCreditExpenses) {
+        const entry = expenseKinds.get(installment.expenseKind) ?? { expenseKind: installment.expenseKind, total: 0, count: 0 };
+        entry.total += installment.amount;
+        entry.count += 1;
+        expenseKinds.set(installment.expenseKind, entry);
+      }
+    }
+    const displayedExpenseKinds = [...expenseKinds.values()]
+      .filter(entry => entry.total > 0)
+      .sort((a, b) => b.total - a.total);
+
+    const days = new Map(byDay.map(entry => [entry.date, { ...entry }]));
+    if (period === 'month') {
+      for (const transaction of periodCreditExpenses) {
+        const entry = days.get(transaction.date);
+        if (entry) entry.expense -= transaction.amount;
+      }
+      const entry = days.get(currentDate) ?? { date: currentDate, income: 0, expense: 0 };
+      entry.expense += scheduledCreditExpenses.reduce((sum, installment) => sum + installment.amount, 0);
+      days.set(currentDate, entry);
+    }
+    const displayedByDay = [...days.values()]
+      .filter(entry => entry.income !== 0 || entry.expense > 0)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const debtByWallet = calculateCurrentCreditDebts(
+      creditTxs,
+      currentDate,
+      creditWalletSettings,
+      creditPayments.flatMap(payment => payment.walletId === null ? [] : [{ ...payment, walletId: payment.walletId }]),
+    );
     const wallets = walletBalances.map(w => {
-      const debt = w.balance > 0 ? debtByWallet.get(w.id) : undefined;
-      const monthlyPrincipal = debt?.principal ?? 0;
-      const monthlyInterest = debt?.interest ?? 0;
+      const debt = debtByWallet.get(w.id);
+      const monthlyPrincipal = w.type === 'credit' ? debt?.principal ?? Math.max(0, w.balance) : 0;
+      const monthlyInterest = w.type === 'credit' ? debt?.interest ?? 0 : 0;
       return { ...w, monthlyPrincipal, monthlyInterest, monthlyDebt: monthlyPrincipal + monthlyInterest };
     });
-    const creditDebt = (w: typeof wallets[number]) => w.monthlyDebt || w.balance;
+    const creditDebt = (w: typeof wallets[number]) => Math.max(0, w.monthlyDebt);
     const totalBalance = wallets.reduce((acc, w) => {
       if (!w.includeInBalance) return acc;
       return acc + (w.type === 'credit' ? -creditDebt(w) : w.balance);
@@ -164,14 +239,14 @@ export const GET: APIRoute = async ({ url }) => {
         income, expenses, transfers,
         balance: income - expenses,
         totalBalance,
-        byExpenseKind,
+        byExpenseKind: displayedExpenseKinds,
         adjustments,
-        byDay,
+        byDay: displayedByDay,
         wallets,
       }
-    }), { headers: { 'Content-Type': 'application/json' } });
+    }), { headers: jsonHeaders });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: jsonHeaders });
   }
 };
 
@@ -212,7 +287,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (txs.length === 0) {
       return new Response(JSON.stringify({ 
         review: 'No hay transacciones registradas en este periodo para analizar. Empieza a registrar tus movimientos!' 
-      }), { headers: { 'Content-Type': 'application/json' } });
+      }), { headers: jsonHeaders });
     }
 
     const totalIncome = txs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
@@ -245,8 +320,8 @@ ${txs.map(t => `- [${t.date}] ${t.type === 'income' ? 'INGRESO' : t.type === 'ex
 
     const review = completion.choices[0]?.message?.content ?? 'No se pudo generar el analisis.';
 
-    return new Response(JSON.stringify({ review }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ review }), { headers: jsonHeaders });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: jsonHeaders });
   }
 };

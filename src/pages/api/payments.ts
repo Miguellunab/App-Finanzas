@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { and, eq, isNull, lte } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { getDb, schema } from '../../lib/db';
 import { calculateCurrentCreditDebts, cardPaymentWindow } from '../../lib/payments';
 import { applyToWallets } from '../../lib/transactionBalances';
@@ -30,13 +31,13 @@ export const GET: APIRoute = async () => {
   try {
     const db = getDb();
     const currentDate = today();
-    const [creditWallets, creditTxs, cardPeriods, subscriptions] = await Promise.all([
+    const creditDestination = alias(schema.wallets, 'credit_payment_destination');
+    const [creditWallets, creditTxs, creditPayments, cardPeriods, subscriptions] = await Promise.all([
       db.select({
         id: schema.wallets.id,
         name: schema.wallets.name,
         emoji: schema.wallets.emoji,
         currency: schema.wallets.currency,
-        balance: schema.wallets.balance,
         interestRate: schema.wallets.interestRate,
         interestPeriod: schema.wallets.interestPeriod,
         statementDay: schema.wallets.statementDay,
@@ -53,6 +54,14 @@ export const GET: APIRoute = async () => {
         .from(schema.transactions)
         .innerJoin(schema.wallets, eq(schema.transactions.walletId, schema.wallets.id))
         .where(and(eq(schema.transactions.type, 'expense'), eq(schema.wallets.type, 'credit'))),
+      db.select({
+        walletId: schema.transactions.walletDestinationId,
+        amount: schema.transactions.amount,
+        date: schema.transactions.date,
+      })
+        .from(schema.transactions)
+        .innerJoin(creditDestination, eq(schema.transactions.walletDestinationId, creditDestination.id))
+        .where(and(eq(schema.transactions.type, 'transfer'), eq(creditDestination.type, 'credit'))),
       db.select({
         walletId: schema.cardPaymentPeriods.walletId,
         periodStart: schema.cardPaymentPeriods.periodStart,
@@ -86,12 +95,17 @@ export const GET: APIRoute = async () => {
       interestPeriod: wallet.interestPeriod,
       interestFromFirstInstallment: wallet.interestFromFirstInstallment,
     }]));
-    const debtByWallet = calculateCurrentCreditDebts(creditTxs, currentDate, settings);
+    const debtByWallet = calculateCurrentCreditDebts(
+      creditTxs,
+      currentDate,
+      settings,
+      creditPayments.flatMap(payment => payment.walletId === null ? [] : [{ ...payment, walletId: payment.walletId }]),
+    );
     const periodKeys = new Set(cardPeriods.map(period => `${period.walletId}:${period.periodStart}:${period.periodEnd}`));
     const cards = creditWallets.flatMap(wallet => {
       const window = cardPaymentWindow(currentDate, wallet.statementDay, wallet.dueDay);
       const debt = debtByWallet.get(wallet.id);
-      if (!window || !debt || debt.total <= 0 || wallet.balance <= 0) return [];
+      if (!window || !debt || debt.total <= 0) return [];
       if (periodKeys.has(`${wallet.id}:${window.start}:${window.end}`)) return [];
       return [{
         kind: 'card' as const,

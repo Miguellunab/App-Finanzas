@@ -93,7 +93,7 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
               <div className="flex items-center gap-2">
                 {w.type === 'credit' ? (
                   <div className="text-right whitespace-nowrap">
-                    <span className="text-sm font-semibold block" style={{ color: '#f43f5e' }}>{formatCOP(w.monthlyPrincipal || w.balance, w.currency)}</span>
+                    <span className="text-sm font-semibold block" style={{ color: '#f43f5e' }}>{formatCOP(w.monthlyPrincipal ?? w.balance, w.currency)}</span>
                     <span className="text-[10px] block" style={{ color: '#9896b0' }}>capital · {w.monthlyInterest ? `${formatCOP(w.monthlyInterest, w.currency)} intereses` : 'sin intereses'}</span>
                   </div>
                 ) : <span className="text-sm font-semibold whitespace-nowrap" style={{ color: w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{formatCOP(w.balance, w.currency)}</span>}
@@ -123,7 +123,7 @@ export default function BalanceCard({ totalBalance, income, expenses, wallets, o
                 <div className="flex items-center gap-2">
                   {w.type === 'credit' ? (
                     <div className="text-right whitespace-nowrap">
-                      <span className="text-sm font-semibold block" style={{ color: '#f43f5e' }}>{formatCOP(w.monthlyPrincipal || w.balance, w.currency)}</span>
+                      <span className="text-sm font-semibold block" style={{ color: '#f43f5e' }}>{formatCOP(w.monthlyPrincipal ?? w.balance, w.currency)}</span>
                       <span className="text-[10px] block" style={{ color: '#9896b0' }}>capital · {w.monthlyInterest ? `${formatCOP(w.monthlyInterest, w.currency)} intereses` : 'sin intereses'}</span>
                     </div>
                   ) : <span className="text-sm font-semibold whitespace-nowrap" style={{ color: w.balance >= 0 ? '#f1f0ff' : '#f43f5e' }}>{formatCOP(w.balance, w.currency)}</span>}
