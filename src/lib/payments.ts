@@ -30,6 +30,36 @@ export function replaceCreditPurchasesWithInstallments(
     + installments.reduce((sum, installment) => sum + installment.amount, 0);
 }
 
+export function creditInstallmentsInRange(
+  transactions: Array<CreditTransactionForDebt & { expenseKind?: string | null }>,
+  startDate: string,
+  endDate: string,
+  wallets: Map<number, { interestRate: number; interestPeriod: string; interestFromFirstInstallment: boolean }>,
+) {
+  return transactions.flatMap(transaction => {
+    const wallet = wallets.get(transaction.walletId);
+    if (!wallet) return [];
+
+    const [year, month, day] = transaction.date.split('-').map(Number);
+    const installments = [];
+    for (let number = 1; number <= Math.max(1, Math.trunc(transaction.installments)); number += 1) {
+      const date = dateForMonthDay(year, month - 1 + number - 1, day);
+      if (date < startDate || date > endDate) continue;
+      const installment = creditInstallment({
+        amount: transaction.amount,
+        installments: transaction.installments,
+        installmentNumber: number,
+        interestRate: wallet.interestRate,
+        interestPeriod: wallet.interestPeriod,
+        interestApplied: transaction.interestApplied,
+        interestFromFirstInstallment: wallet.interestFromFirstInstallment,
+      });
+      if (installment.total > 0) installments.push({ amount: installment.total, date, expenseKind: transaction.expenseKind ?? null });
+    }
+    return installments;
+  });
+}
+
 export function calculateCurrentCreditDebts(
   transactions: CreditTransactionForDebt[],
   currentDate: string,

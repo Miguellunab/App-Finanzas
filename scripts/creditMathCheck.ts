@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { calculateCurrentCreditDebts, replaceCreditPurchasesWithInstallments } from '../src/lib/payments';
+import { calculateCurrentCreditDebts, creditInstallmentsInRange, replaceCreditPurchasesWithInstallments } from '../src/lib/payments';
 import { creditInstallment, installmentNumberForMonth } from '../src/lib/utils';
 
 const base = { amount: 90_000, installments: 3, interestRate: 2, interestPeriod: 'MV', interestApplied: true };
@@ -24,5 +24,11 @@ assert.deepEqual(calculateCurrentCreditDebts(purchase, '2026-07-23', walletSetti
 assert.deepEqual(calculateCurrentCreditDebts(purchase, '2026-08-23', walletSettings, partialPayment).get(1), { principal: 70_000, interest: 0, total: 70_000 });
 assert.deepEqual(calculateCurrentCreditDebts(purchase, '2026-08-23', walletSettings, overpayment).get(1), { principal: 50_000, interest: 0, total: 50_000 });
 assert.equal(replaceCreditPurchasesWithInstallments(849_980, [{ amount: 431_180 }, { amount: 26_000 }], [{ amount: 318_280 }]), 711_080);
+assert.deepEqual(creditInstallmentsInRange([
+  { walletId: 1, amount: 431_180, installments: 6, interestApplied: false, date: '2026-07-16', expenseKind: 'variable' },
+  { walletId: 1, amount: 26_000, installments: 1, interestApplied: false, date: '2026-07-21', expenseKind: 'variable' },
+], '2026-07-20', '2026-07-23', walletSettings), [
+  { amount: 26_000, date: '2026-07-21', expenseKind: 'variable' },
+]);
 
 console.log('Calculos de tarjetas verificados.');

@@ -3,8 +3,8 @@ import { getDb, schema } from '../../lib/db';
 import { eq, sql, gte, lte, and, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { getGroq, MODELS, STATS_SYSTEM_PROMPT } from '../../lib/groq';
-import { creditInstallment, getCurrentMonthRange, installmentNumberForMonth } from '../../lib/utils';
-import { calculateCurrentCreditDebts, replaceCreditPurchasesWithInstallments } from '../../lib/payments';
+import { getCurrentMonthRange } from '../../lib/utils';
+import { calculateCurrentCreditDebts, creditInstallmentsInRange, replaceCreditPurchasesWithInstallments } from '../../lib/payments';
 import { today } from '../../lib/subscriptions';
 
 const jsonHeaders = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
@@ -14,6 +14,7 @@ export const GET: APIRoute = async ({ url }) => {
     const db = getDb();
     const searchParams = url.searchParams;
     const period = searchParams.get('period') ?? 'month'; // month | all
+    const currentDate = today();
     
     let startDate: string | undefined;
     let endDate: string | undefined;
@@ -21,7 +22,7 @@ export const GET: APIRoute = async ({ url }) => {
     if (period === 'month') {
       const range = getCurrentMonthRange();
       startDate = range.start;
-      endDate = range.end;
+      endDate = currentDate;
     } else if (searchParams.get('startDate')) {
       startDate = searchParams.get('startDate')!;
       endDate = searchParams.get('endDate') ?? new Date().toISOString().split('T')[0];
@@ -154,26 +155,14 @@ export const GET: APIRoute = async ({ url }) => {
     const rawExpenses = totals.find(t => t.type === 'expense')?.total ?? 0;
     const transfers = totals.find(t => t.type === 'transfer')?.total ?? 0;
 
-    const currentDate = today();
     const creditWalletSettings = new Map(creditWallets.map(wallet => [wallet.id, {
       interestRate: wallet.interestRate,
       interestPeriod: wallet.interestPeriod,
       interestFromFirstInstallment: wallet.interestFromFirstInstallment,
     }]));
-    const scheduledCreditExpenses = creditTxs.flatMap(transaction => {
-      const wallet = creditWalletSettings.get(transaction.walletId);
-      if (!wallet) return [];
-      const installment = creditInstallment({
-        amount: transaction.amount,
-        installments: transaction.installments,
-        installmentNumber: installmentNumberForMonth(transaction.date, currentDate),
-        interestRate: wallet.interestRate,
-        interestPeriod: wallet.interestPeriod,
-        interestApplied: transaction.interestApplied,
-        interestFromFirstInstallment: wallet.interestFromFirstInstallment,
-      });
-      return installment.total > 0 ? [{ amount: installment.total, expenseKind: transaction.expenseKind }] : [];
-    });
+    const scheduledCreditExpenses = period === 'month' && startDate && endDate
+      ? creditInstallmentsInRange(creditTxs, startDate, endDate, creditWalletSettings)
+      : [];
     const periodCreditExpenses = period === 'month'
       ? creditTxs.filter(transaction => (!startDate || transaction.date >= startDate) && (!endDate || transaction.date <= endDate))
       : [];
@@ -207,9 +196,11 @@ export const GET: APIRoute = async ({ url }) => {
         const entry = days.get(transaction.date);
         if (entry) entry.expense -= transaction.amount;
       }
-      const entry = days.get(currentDate) ?? { date: currentDate, income: 0, expense: 0 };
-      entry.expense += scheduledCreditExpenses.reduce((sum, installment) => sum + installment.amount, 0);
-      days.set(currentDate, entry);
+      for (const installment of scheduledCreditExpenses) {
+        const entry = days.get(installment.date) ?? { date: installment.date, income: 0, expense: 0 };
+        entry.expense += installment.amount;
+        days.set(installment.date, entry);
+      }
     }
     const displayedByDay = [...days.values()]
       .filter(entry => entry.income !== 0 || entry.expense > 0)
